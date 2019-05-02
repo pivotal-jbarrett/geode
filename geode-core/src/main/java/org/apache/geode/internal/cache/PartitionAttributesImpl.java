@@ -564,10 +564,10 @@ public class PartitionAttributesImpl implements PartitionAttributes, Cloneable, 
               "TotalNumBuckets %s is an illegal value, please choose a value greater than 0",
               this.totalNumBuckets));
     }
-    if ((this.redundancy < 0) || (this.redundancy >= 4)) {
+    if (this.redundancy < 0) {
       throw new IllegalStateException(
           String.format(
-              "RedundantCopies %s is an illegal value, please choose a value between 0 and 3",
+              "RedundantCopies %s is an illegal value, please choose a value between 0 or more",
               this.redundancy));
     }
     for (Iterator it = this.getLocalProperties().keySet().iterator(); it.hasNext();) {
