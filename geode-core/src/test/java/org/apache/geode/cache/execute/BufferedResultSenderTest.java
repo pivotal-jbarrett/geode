@@ -154,7 +154,6 @@ public class BufferedResultSenderTest {
     verifyNoMoreInteractions(mockResultSender);
   }
 
-
   @Test
   public void sendAllResultsAfterCloseIsNoop() {
     final BufferedResultSender<Integer> resultSender = new BufferedResultSender<>(mockResultSender);
