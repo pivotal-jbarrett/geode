@@ -44,6 +44,7 @@ public class RegionProvider {
 
     PartitionAttributesFactory<RedisKey, RedisData> attributesFactory =
         new PartitionAttributesFactory<>();
+    attributesFactory.setRedundantCopies(0);
     attributesFactory.setPartitionResolver(new RedisPartitionResolver());
     attributesFactory.setTotalNumBuckets(REDIS_REGION_BUCKETS);
     redisDataRegionFactory.setPartitionAttributes(attributesFactory.create());
