@@ -1681,54 +1681,13 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
   }
 
   private void extractDeltaIntoEvent(Object value, EntryEventImpl event) {
-    // 1. Check for DS-level delta property.
-    // 2. Default value for operation type is UPDATE, so no need to check that here.
-    // 3. Check if it has server region proxy.
-    // We do not have a handle to event in PutOpImpl to check if we have
-    // delta bytes calculated already. So no need to calculate it here.
-    // 4. Check if value is instanceof org.apache.geode.Delta
-    // 5. Check if Region in PR with redundantCopies > 0. Set extractDelta.
-    // 6. Check if Region has peers. Set extractDelta.
-    // 7. Check if it has any delta proxies attached to it. Set extractDelta.
-    // 8. If extractDelta is set, check if it has delta.
-    // 9. If delta is found, extract it and set it into the event.
-    // 10. If any exception is caught while invoking the delta callbacks, throw it back.
-    // 11. Wrap any checked exception in InternalGemFireException before throwing it.
     try {
-      // How costly is this if check?
-      if (getSystem().getConfig().getDeltaPropagation() && value instanceof Delta) {
-        boolean extractDelta = false;
-        if (!hasServerProxy()) {
-          if (this instanceof PartitionedRegion) {
-            if (((PartitionedRegion) this).getRedundantCopies() > 0) {
-              extractDelta = true;
-            } else {
-              InternalDistributedMember ids = (InternalDistributedMember) PartitionRegionHelper
-                  .getPrimaryMemberForKey(this, event.getKey());
-              if (ids != null) {
-                extractDelta = !getSystem().getMemberId().equals(ids.getId())
-                    || hasAdjunctRecipientsNeedingDelta(event);
-              } else {
-                extractDelta = true;
-              }
-            }
-          } else if (this instanceof DistributedRegion
-              && !((DistributedRegion) this).scope.isDistributedNoAck()
-              && !((CacheDistributionAdvisee) this).getCacheDistributionAdvisor().adviseCacheOp()
-                  .isEmpty()) {
-            extractDelta = true;
-          }
-          if (!extractDelta && ClientHealthMonitor.getInstance() != null) {
-            extractDelta = ClientHealthMonitor.getInstance().hasDeltaClients();
-          }
-        } else if (getSystem().isDeltaEnabledOnServer()) {
-          // This is a client region
-          extractDelta = true;
-        }
-        if (extractDelta && ((Delta) value).hasDelta()) {
+      if (value instanceof Delta) {
+        final Delta deltaValue = (Delta) value;
+        if (deltaValue.hasDelta()) {
           try (HeapDataOutputStream hdos = new HeapDataOutputStream(KnownVersion.CURRENT)) {
             try {
-              ((Delta) value).toDelta(hdos);
+              deltaValue.toDelta(hdos);
             } catch (RuntimeException re) {
               throw re;
             } catch (Exception e) {
