@@ -24,7 +24,7 @@ import org.apache.geode.internal.serialization.SerializationContext;
 public class SerializationContextImpl extends AbstractSerializationContext
     implements SerializationContext {
 
-  private final DataOutput dataOutput;
+  private DataOutput dataOutput;
   private final DSFIDSerializer serializer;
 
   public SerializationContextImpl(DataOutput dataOutput, DSFIDSerializer serializer) {
@@ -42,4 +42,11 @@ public class SerializationContextImpl extends AbstractSerializationContext
     return serializer.getObjectSerializer();
   }
 
+  public void setDataOutput(final DataOutput dataOutput) {
+    this.dataOutput = dataOutput;
+  }
+
+  public DataOutput getDataOutput() {
+    return dataOutput;
+  }
 }

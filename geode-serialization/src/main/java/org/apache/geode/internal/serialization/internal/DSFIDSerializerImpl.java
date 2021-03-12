@@ -160,6 +160,8 @@ public class DSFIDSerializerImpl implements DSFIDSerializer {
     }
   }
 
+  private final ThreadLocal<SerializationContextImpl> serializationContext = ThreadLocal.withInitial(() -> {return new SerializationContextImpl(null, this);});
+
   /**
    * For backward compatibility this method should be used to invoke toData on a DSFID.
    * It will invoke the correct toData method based on the class's version
@@ -172,50 +174,55 @@ public class DSFIDSerializerImpl implements DSFIDSerializer {
   @Override
   public void invokeToData(Object ds, DataOutput out) throws IOException {
 
-    final SerializationContext context = new SerializationContextImpl(out, this);
-
-    boolean isDSFID = ds instanceof DataSerializableFixedID;
-
-    if (!isDSFID) {
-      if (ds instanceof BasicSerializable) {
-        ((BasicSerializable) ds).toData(out, context);
-        return;
-      }
-      throw new IllegalArgumentException(
-          "Expected a DataSerializableFixedID but found " + ds.getClass().getName());
-    }
-
+    final SerializationContextImpl context = serializationContext.get();
+    final DataOutput prevOut = context.getDataOutput();
+    context.setDataOutput(out);
     try {
-      boolean invoked = false;
-      KnownVersion v = context.getSerializationVersion();
+      boolean isDSFID = ds instanceof DataSerializableFixedID;
 
-      if (!KnownVersion.CURRENT.equals(v)) {
-        // get versions where DataOutput was upgraded
-        SerializationVersions sv = (SerializationVersions) ds;
-        KnownVersion[] versions = sv.getSerializationVersions();
-        // check if the version of the peer or diskstore is different and
-        // there has been a change in the message
-        if (versions != null) {
-          for (KnownVersion version : versions) {
-            // if peer version is less than the greatest upgraded version
-            if (v.compareTo(version) < 0) {
-              ds.getClass().getMethod("toDataPre_" + version.getMethodSuffix(),
-                  new Class[] {DataOutput.class, SerializationContext.class})
-                  .invoke(ds, out, context);
-              invoked = true;
-              break;
+      if (!isDSFID) {
+        if (ds instanceof BasicSerializable) {
+          ((BasicSerializable) ds).toData(out, context);
+          return;
+        }
+        throw new IllegalArgumentException(
+            "Expected a DataSerializableFixedID but found " + ds.getClass().getName());
+      }
+
+      try {
+        boolean invoked = false;
+        KnownVersion v = context.getSerializationVersion();
+
+        if (!KnownVersion.CURRENT.equals(v)) {
+          // get versions where DataOutput was upgraded
+          SerializationVersions sv = (SerializationVersions) ds;
+          KnownVersion[] versions = sv.getSerializationVersions();
+          // check if the version of the peer or diskstore is different and
+          // there has been a change in the message
+          if (versions != null) {
+            for (KnownVersion version : versions) {
+              // if peer version is less than the greatest upgraded version
+              if (v.compareTo(version) < 0) {
+                ds.getClass().getMethod("toDataPre_" + version.getMethodSuffix(),
+                    new Class[]{DataOutput.class, SerializationContext.class})
+                    .invoke(ds, out, context);
+                invoked = true;
+                break;
+              }
             }
           }
         }
-      }
 
-      if (!invoked) {
-        ((DataSerializableFixedID) ds).toData(out, context);
+        if (!invoked) {
+          ((DataSerializableFixedID) ds).toData(out, context);
+        }
+      } catch (NoSuchMethodException | SecurityException | IllegalAccessException
+          | InvocationTargetException e) {
+        throw new IOException(
+            "problem invoking toData method on object of class" + ds.getClass().getName(), e);
       }
-    } catch (NoSuchMethodException | SecurityException | IllegalAccessException
-        | InvocationTargetException e) {
-      throw new IOException(
-          "problem invoking toData method on object of class" + ds.getClass().getName(), e);
+    } finally {
+      context.setDataOutput(prevOut);
     }
   }
 
