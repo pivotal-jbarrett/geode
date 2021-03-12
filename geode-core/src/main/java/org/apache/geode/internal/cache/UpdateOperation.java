@@ -429,8 +429,7 @@ public class UpdateOperation extends AbstractUpdateOperation {
 
     private void setDeltaFlag(DistributedRegion region) {
       try {
-        if (region != null && region.getSystem().getConfig().getDeltaPropagation() && this.sendDelta
-            && !region.scope.isDistributedNoAck() && this.event.getDeltaBytes() != null) {
+        if (this.event.getDeltaBytes() != null) {
           setHasDelta(true);
           return;
         }
