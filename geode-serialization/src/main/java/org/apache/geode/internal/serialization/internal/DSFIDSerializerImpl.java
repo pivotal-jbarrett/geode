@@ -160,7 +160,10 @@ public class DSFIDSerializerImpl implements DSFIDSerializer {
     }
   }
 
-  private final ThreadLocal<SerializationContextImpl> serializationContext = ThreadLocal.withInitial(() -> {return new SerializationContextImpl(null, this);});
+  private final ThreadLocal<SerializationContextImpl> serializationContext =
+      ThreadLocal.withInitial(() -> {
+        return new SerializationContextImpl(null, this);
+      });
 
   /**
    * For backward compatibility this method should be used to invoke toData on a DSFID.
@@ -204,7 +207,7 @@ public class DSFIDSerializerImpl implements DSFIDSerializer {
               // if peer version is less than the greatest upgraded version
               if (v.compareTo(version) < 0) {
                 ds.getClass().getMethod("toDataPre_" + version.getMethodSuffix(),
-                    new Class[]{DataOutput.class, SerializationContext.class})
+                    new Class[] {DataOutput.class, SerializationContext.class})
                     .invoke(ds, out, context);
                 invoked = true;
                 break;
