@@ -481,12 +481,22 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
   public static int hashCodeMemberId(byte[] memberID) {
     if (memberID.length < (NULL_90_MEMBER_DATA_LENGTH + MINIMIM_ID_LENGTH)
         || !nullUUIDCheck(memberID, memberID.length - NULL_90_MEMBER_DATA_LENGTH)) {
-      return Arrays.hashCode(memberID);
+      return hashCode(memberID, memberID.length);
     }
-    byte[] newID = new byte[memberID.length - NULL_90_MEMBER_DATA_LENGTH];
-    System.arraycopy(memberID, 0, newID, 0, newID.length);
-    return Arrays.hashCode(newID);
+    return hashCode(memberID, memberID.length - NULL_90_MEMBER_DATA_LENGTH);
   }
+
+  public static int hashCode(final byte a[], final int length) {
+    if (a == null)
+      return 0;
+
+    int result = 1;
+    for (int i = 0; i < length; i++)
+      result = 31 * result + a[i];
+
+    return result;
+  }
+
 
   public int hashCode() {
     if (hashCode == 0) {
