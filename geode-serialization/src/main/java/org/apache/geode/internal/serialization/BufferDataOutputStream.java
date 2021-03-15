@@ -447,17 +447,7 @@ public class BufferDataOutputStream extends OutputStream implements VersionedDat
    * point until it has been reset.
    */
   public byte[] toByteArray() {
-    ByteBuffer bb = toByteBuffer();
-    if (bb.hasArray() && bb.arrayOffset() == 0 && bb.limit() == bb.capacity()) {
-      return bb.array();
-    } else {
-      // create a new buffer of just the right size and copy the old buffer into it
-      ByteBuffer tmp = ByteBuffer.allocate(bb.remaining());
-      tmp.put(bb);
-      tmp.flip();
-      buffer = tmp;
-      return buffer.array();
-    }
+    return toByteBuffer().array();
   }
 
   protected void flushBuffer(SocketChannel sc, ByteBuffer out) throws IOException {
