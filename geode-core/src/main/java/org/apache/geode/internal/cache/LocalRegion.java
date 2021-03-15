@@ -1683,7 +1683,7 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
       if (value instanceof Delta) {
         final Delta deltaValue = (Delta) value;
         if (deltaValue.hasDelta()) {
-          try (HeapDataOutputStream hdos = new HeapDataOutputStream(KnownVersion.CURRENT)) {
+          try (HeapDataOutputStream hdos = new HeapDataOutputStream(128, KnownVersion.CURRENT)) {
             try {
               deltaValue.toDelta(hdos);
             } catch (RuntimeException re) {
