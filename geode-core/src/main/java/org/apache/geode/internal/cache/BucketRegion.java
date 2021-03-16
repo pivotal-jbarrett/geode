@@ -756,22 +756,22 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       // ops
 
       if (!event.isBulkOpInProgress()) {
-        final EntryEventImpl asyncEvent = new EntryEventImpl(event);
-        asyncPool.execute(() -> {
-          final long start = partitionedRegion.getPrStats().startSendReplication();
-          try {
-            // before distribute: PR's put PR
-            long token = -1;
-            final UpdateOperation op = new UpdateOperation(asyncEvent, modifiedTime);
-            try {
-              token = op.startOperation();
-            } finally {
-              op.endOperation(token);
-            }
-          } finally {
-            partitionedRegion.getPrStats().endSendReplication(start);
-          }
-        });
+//        final EntryEventImpl asyncEvent = new EntryEventImpl(event);
+//        asyncPool.execute(() -> {
+//          final long start = partitionedRegion.getPrStats().startSendReplication();
+//          try {
+//            // before distribute: PR's put PR
+//            long token = -1;
+//            final UpdateOperation op = new UpdateOperation(asyncEvent, modifiedTime);
+//            try {
+//              token = op.startOperation();
+//            } finally {
+//              op.endOperation(token);
+//            }
+//          } finally {
+//            partitionedRegion.getPrStats().endSendReplication(start);
+//          }
+//        });
       } else {
         // consolidate the UpdateOperation for each entry into a PutAllMessage
         // basicPutPart3 takes care of this
