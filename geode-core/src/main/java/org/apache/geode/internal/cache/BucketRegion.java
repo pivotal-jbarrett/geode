@@ -39,6 +39,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
+import com.lmax.disruptor.EventFactory;
+import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.YieldingWaitStrategy;
+import com.lmax.disruptor.dsl.Disruptor;
+import com.lmax.disruptor.dsl.ProducerType;
+import com.lmax.disruptor.util.DaemonThreadFactory;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -731,109 +737,50 @@ public class BucketRegion extends DistributedRegion implements Bucket {
     }
   }
 
-  private static class ConcurrentLinkedBlockingQueue<E> extends ConcurrentLinkedQueue<E> implements
-      BlockingQueue<E> {
+  private static class AsyncPutEvent {
 
-    private final int limit;
-    private final AtomicInteger capacity = new AtomicInteger();
+    private PartitionedRegion partitionedRegion;
+    private EntryEventImpl asyncEvent;
+    private long modifiedTime;
 
-    public ConcurrentLinkedBlockingQueue() {
-      limit = Integer.MAX_VALUE;
+    public PartitionedRegion getPartitionedRegion() {
+      return partitionedRegion;
     }
 
-    @Override
-    public boolean isEmpty() {
-      return capacity.get() == 0;
+    public EntryEventImpl getAsyncEvent() {
+      return asyncEvent;
     }
 
-    @Override
-    public int size() {
-      return capacity.get();
+    public long getModifiedTime() {
+      return modifiedTime;
     }
 
-    @Override
-    public boolean remove(final Object o) {
-      if (super.remove(o)) {
-        capacity.getAndDecrement();
-        return true;
-      }
-
-      return false;
-    }
-
-    @Override
-    public void put(@NotNull final E e) throws InterruptedException {
-      while (!offer(e)) {
-        Thread.yield();
-      }
-    }
-
-    @Override
-    public boolean offer(final E e) {
-      final int c = capacity.get();
-      if (c < limit && capacity.compareAndSet(c, c + 1)) {
-        return super.offer(e);
-      }
-      return false;
-    }
-
-    @Override
-    public boolean offer(final E e, final long timeout, @NotNull final TimeUnit unit)
-        throws InterruptedException {
-      return false;
-    }
-
-    @NotNull
-    @Override
-    public E take() throws InterruptedException {
-      E e;
-      while ((e = poll()) == null) {
-        Thread.yield();
-      }
-      return e;
-    }
-
-    @Override
-    public E poll() {
-      final int c = capacity.get();
-      if (c > 0 && capacity.compareAndSet(c, c - 1)) {
-        return super.poll();
-      }
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public E poll(final long timeout, @NotNull final TimeUnit unit) throws InterruptedException {
-      final long expires = System.nanoTime() + unit.toNanos(timeout);
-      do {
-        final E e = poll();
-        if (e != null) {
-          return e;
-        }
-        Thread.yield();
-      } while (System.nanoTime() < expires);
-      return null;
-    }
-
-    @Override
-    public int remainingCapacity() {
-      return limit - capacity.get();
-    }
-
-    @Override
-    public int drainTo(@NotNull final Collection<? super E> c) {
-      return 0;
-    }
-
-    @Override
-    public int drainTo(@NotNull final Collection<? super E> c, final int maxElements) {
-      return 0;
+    public void set(final PartitionedRegion partitionedRegion, final EntryEventImpl asyncEvent, final long modifiedTime) {
+      this.partitionedRegion = partitionedRegion;
+      this.asyncEvent = asyncEvent;
+      this.modifiedTime = modifiedTime;
     }
   }
 
-  private static final ExecutorService asyncPool = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
-      60L, TimeUnit.SECONDS, new ConcurrentLinkedBlockingQueue<Runnable>());
+  private static final Disruptor<AsyncPutEvent> disruptor = new Disruptor<>(AsyncPutEvent::new, 1024, DaemonThreadFactory.INSTANCE, ProducerType.MULTI, new YieldingWaitStrategy());
+  static {
+    disruptor.handleEventsWith((event, sequence, endOfBatch) -> {
+      final long start = event.getPartitionedRegion().getPrStats().startSendReplication();
+      try {
+        // before distribute: PR's put PR
+        long token = -1;
+        final UpdateOperation op = new UpdateOperation(event.getAsyncEvent(), event.getModifiedTime());
+        try {
+          token = op.startOperation();
+        } finally {
+          op.endOperation(token);
+        }
+      } finally {
+        event.getPartitionedRegion().getPrStats().endSendReplication(start);
+      }
+    });
+    disruptor.start();
+  }
 
   public long basicPutPart2Async(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
       long lastModified, boolean clearConflict) {
@@ -866,20 +813,9 @@ public class BucketRegion extends DistributedRegion implements Bucket {
 
       if (!event.isBulkOpInProgress()) {
         final EntryEventImpl asyncEvent = new EntryEventImpl(event);
-        asyncPool.execute(() -> {
-          final long start = partitionedRegion.getPrStats().startSendReplication();
-          try {
-            // before distribute: PR's put PR
-            long token = -1;
-            final UpdateOperation op = new UpdateOperation(asyncEvent, modifiedTime);
-            try {
-              token = op.startOperation();
-            } finally {
-              op.endOperation(token);
-            }
-          } finally {
-            partitionedRegion.getPrStats().endSendReplication(start);
-          }
+        final RingBuffer<AsyncPutEvent> ringBuffer = disruptor.getRingBuffer();
+        ringBuffer.publishEvent((devent, sequence) -> {
+          devent.set(partitionedRegion, asyncEvent, modifiedTime);
         });
       } else {
         // consolidate the UpdateOperation for each entry into a PutAllMessage
