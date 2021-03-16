@@ -751,12 +751,13 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       // ops
 
       if (!event.isBulkOpInProgress()) {
+        final EntryEventImpl asyncEvent = new EntryEventImpl(event);
         asyncPool.execute(() -> {
           final long start = partitionedRegion.getPrStats().startSendReplication();
           try {
             // before distribute: PR's put PR
             long token = -1;
-            final UpdateOperation op = new UpdateOperation(event, modifiedTime);
+            final UpdateOperation op = new UpdateOperation(asyncEvent, modifiedTime);
             try {
               token = op.startOperation();
             } finally {
