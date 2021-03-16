@@ -21,7 +21,6 @@ import java.io.IOException;
 import org.apache.logging.log4j.Logger;
 
 import org.apache.geode.cache.CacheRuntimeException;
-import org.apache.geode.cache.Scope;
 import org.apache.geode.distributed.internal.ClusterDistributionManager;
 import org.apache.geode.distributed.internal.MessageWithReply;
 import org.apache.geode.distributed.internal.ReplyProcessor21;
