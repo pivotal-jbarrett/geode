@@ -5914,14 +5914,13 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
    * generate version tag if it does not exist and set it into the event.
    */
   @Override
-  public void generateAndSetVersionTag(InternalCacheEvent event, RegionEntry entry) {
+  public void generateAndSetVersionTag(final InternalCacheEvent event, final RegionEntry entry) {
     if (entry != null && event.getOperation().isEntry()) {
-      EntryEventImpl entryEvent = (EntryEventImpl) event;
+      final EntryEventImpl entryEvent = (EntryEventImpl) event;
       if (!entryEvent.isOriginRemote() && shouldGenerateVersionTag(entry, entryEvent)) {
-        boolean eventHasDelta = getSystem().getConfig().getDeltaPropagation()
-            && !scope.isDistributedNoAck() && entryEvent.getDeltaBytes() != null;
-        VersionTag v = entry.generateVersionTag(null, eventHasDelta, this, entryEvent);
-        if (logger.isDebugEnabled() && v != null) {
+        final boolean eventHasDelta = entryEvent.getDeltaBytes() != null;
+        final VersionTag<?> v = entry.generateVersionTag(null, eventHasDelta, this, entryEvent);
+        if (v != null && logger.isDebugEnabled()) {
           logger.debug("generated version tag {} for {}", v, entryEvent.getKey());
         }
       }
