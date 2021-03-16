@@ -25,7 +25,7 @@ import java.util.concurrent.Callable;
  * stripe.
  */
 public class SynchronizedStripedExecutor implements StripedExecutor {
-  private static final int DEFAULT_CONCURRENCY_LEVEL = 4093; // use a prime
+  private static final int DEFAULT_CONCURRENCY_LEVEL = 8999; // use a prime
   private final Object[] syncs;
 
   public SynchronizedStripedExecutor() {
