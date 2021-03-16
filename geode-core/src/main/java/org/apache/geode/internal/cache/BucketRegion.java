@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
@@ -658,6 +660,11 @@ public class BucketRegion extends DistributedRegion implements Bucket {
   @Override
   public long basicPutPart2(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
       long lastModified, boolean clearConflict) {
+
+    if (scope.isDistributedNoAck()) {
+      return basicPutPart2Async(event, entry, isInitialized, lastModified, clearConflict);
+    }
+
     // Assumed this is called with entry synchrony
 
     // Typically UpdateOperation is called with the
@@ -710,6 +717,62 @@ public class BucketRegion extends DistributedRegion implements Bucket {
         op.endOperation(token);
       }
     }
+  }
+
+  private static final ExecutorService asyncPool = Executors.newCachedThreadPool();
+
+  public long basicPutPart2Async(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
+      long lastModified, boolean clearConflict) {
+    // Assumed this is called with entry synchrony
+
+    // Typically UpdateOperation is called with the
+    // timestamp returned from basicPutPart2, but as a bucket we want to do
+    // distribution *before* we do basicPutPart2.
+    final long modifiedTime = event.getEventTime(lastModified);
+
+    // Update the get stats if necessary.
+    if (partitionedRegion.getDataStore().hasClientInterest(event)) {
+      updateStatsForGet(entry, true);
+    }
+    if (!event.isOriginRemote()) {
+      if (event.getVersionTag() == null || event.getVersionTag().isGatewayTag()) {
+        boolean eventHasDelta = event.getDeltaBytes() != null;
+        VersionTag v = entry.generateVersionTag(null, eventHasDelta, this, event);
+        if (v != null) {
+          if (logger.isDebugEnabled()) {
+            logger.debug("generated version tag {} in region {}", v, getName());
+          }
+        }
+      }
+
+      // This code assumes it is safe ignore token mode (GII in progress)
+      // because it assumes when the origin of the event is local,
+      // the GII has completed and the region is initialized and open for local
+      // ops
+
+      if (!event.isBulkOpInProgress()) {
+        asyncPool.execute(() -> {
+          final long start = partitionedRegion.getPrStats().startSendReplication();
+          try {
+            // before distribute: PR's put PR
+            long token = -1;
+            final UpdateOperation op = new UpdateOperation(event, modifiedTime);
+            try {
+              token = op.startOperation();
+            } finally {
+              op.endOperation(token);
+            }
+          } finally {
+            partitionedRegion.getPrStats().endSendReplication(start);
+          }
+        });
+      } else {
+        // consolidate the UpdateOperation for each entry into a PutAllMessage
+        // basicPutPart3 takes care of this
+      }
+    }
+
+    return super.basicPutPart2(event, entry, isInitialized, lastModified, clearConflict);
   }
 
   @Override
