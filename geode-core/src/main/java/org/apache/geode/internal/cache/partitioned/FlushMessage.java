@@ -105,23 +105,6 @@ public class FlushMessage extends SerialDistributionMessage implements MessageWi
     }
   }
 
-  /**
-   * Send this message to the bucket primary, after the
-   * {@link ReplyProcessor21#waitForRepliesUninterruptibly()} returns, all updates from the primary
-   * should be complete. Use this from a host of a backup bucket (aka secondary) when the update
-   * operations originating from the primary {@link Scope#DISTRIBUTED_NO_ACK do not require an
-   * acknowldgement}
-   *
-   * @return a processor on which to wait for the flush operation to complete
-   */
-  public static ReplyProcessor21 send(InternalDistributedMember primary, PartitionedRegion p,
-      int bucketId) {
-    ReplyProcessor21 reply = new ReplyProcessor21(p.getDistributionManager(), primary);
-    FlushMessage fm = new FlushMessage(p.getPRId(), bucketId, reply.getProcessorId(), primary);
-    p.getDistributionManager().putOutgoing(fm);
-    return reply;
-  }
-
   @Override
   public int getProcessorId() {
     return this.processorId;
