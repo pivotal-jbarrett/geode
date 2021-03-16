@@ -161,7 +161,7 @@ public class SessionExpirationDUnitTest extends SessionDUnitTest {
       return 0;
     }
     ObjectInputStream inputStream;
-    byte[] bytes = redisHash.hget(new ByteArrayWrapper("maxInactiveInterval".getBytes())).toBytes();
+    byte[] bytes = redisHash.hget("maxInactiveInterval".getBytes());
     ByteArrayInputStream byteStream = new ByteArrayInputStream(bytes);
     try {
       inputStream = new ObjectInputStream(byteStream);
