@@ -32,7 +32,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.Logger;
 
@@ -1584,22 +1586,22 @@ public class DistributionAdvisor {
     /**
      * the version of the profile set
      */
-    private long membershipVersion;
+    private volatile long membershipVersion;
 
     /**
      * the number of operations in-progress for previous versions of the profile set
      */
-    private long previousVersionOpCount;
+    private final AtomicLong previousVersionOpCount = new AtomicLong();
     /**
      * the number of operations in-progress for the current version of the profile set
      */
-    private long currentVersionOpCount;
+    private final AtomicLong currentVersionOpCount = new AtomicLong();
 
     /**
      * for debugging stalled state-flush operations we track threads performing operations
      * and capture the state when startOperatiopn is invoked
      */
-    private boolean closed;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     private OperationMonitor(DistributionAdvisor distributionAdvisor) {
       this.distributionAdvisor = distributionAdvisor;
@@ -1616,10 +1618,9 @@ public class DistributionAdvisor {
      * @since GemFire 5.1
      */
     private synchronized void forceNewMembershipVersion() {
-      if (!closed) {
+      if (!closed.get()) {
         incrementMembershipVersion();
-        previousVersionOpCount += currentVersionOpCount;
-        currentVersionOpCount = 0;
+        previousVersionOpCount.addAndGet(currentVersionOpCount.getAndSet(0));
         membershipVersionChanged();
       }
     }
@@ -1633,9 +1634,9 @@ public class DistributionAdvisor {
      * @return the current membership version for this advisor
      * @since GemFire 5.1
      */
-    private synchronized long startOperation() {
+    private long startOperation() {
       logNewOperation();
-      currentVersionOpCount++;
+      currentVersionOpCount.getAndIncrement();
       return membershipVersion;
     }
 
@@ -1646,12 +1647,12 @@ public class DistributionAdvisor {
      * @param version The membership version returned by startOperation
      * @since GemFire 5.1
      */
-    private synchronized void endOperation(long version) {
+    private void endOperation(long version) {
       if (version == membershipVersion) {
-        currentVersionOpCount--;
+        currentVersionOpCount.getAndDecrement();
         logEndOperation(true);
       } else {
-        previousVersionOpCount--;
+        previousVersionOpCount.getAndDecrement();
         logEndOperation(false);
       }
     }
@@ -1699,22 +1700,21 @@ public class DistributionAdvisor {
       }
     }
 
-    private synchronized boolean operationsAreInProgress() {
-      return previousVersionOpCount > 0;
+    private boolean operationsAreInProgress() {
+      return previousVersionOpCount.get() > 0;
     }
 
     private synchronized void initNewProfile(Profile newProfile) {
       membershipVersion++;
       newProfile.initialMembershipVersion = membershipVersion;
-      previousVersionOpCount = previousVersionOpCount + currentVersionOpCount;
-      currentVersionOpCount = 0;
+      previousVersionOpCount.getAndAdd(currentVersionOpCount.getAndSet(0));
       membershipVersionChanged();
     }
 
     synchronized void close() {
-      previousVersionOpCount = 0;
-      currentVersionOpCount = 0;
-      closed = true;
+      previousVersionOpCount.getAndSet(0);
+      currentVersionOpCount.getAndSet(0);
+      closed.set(true);
     }
 
     void logNewOperation() {
