@@ -759,7 +759,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
 
   private static final ThreadLocal<Disruptor<UpdateOperationEvent>> disruptor = ThreadLocal.withInitial(() -> {
     final Disruptor<UpdateOperationEvent> disruptor = new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE,
-            ProducerType.SINGLE, new YieldingWaitStrategy());
+            ProducerType.SINGLE, new SleepingWaitStrategy());
     disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
       final long start = updateOperationEvent.getPartitionedRegion().getPrStats().startSendReplication();
       try {
