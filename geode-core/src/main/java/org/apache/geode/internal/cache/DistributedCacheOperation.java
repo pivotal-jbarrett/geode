@@ -1107,7 +1107,7 @@ public abstract class DistributedCacheOperation {
 
         final LocalRegion lclRgn = getLocalRegionForProcessing(dm);
         sendReply = false;
-        //basicProcess(dm, lclRgn);
+        basicProcess(dm, lclRgn);
       } catch (CancelException ignore) {
         this.closed = true;
         if (logger.isDebugEnabled()) {
