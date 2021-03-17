@@ -761,19 +761,19 @@ public class BucketRegion extends DistributedRegion implements Bucket {
     final Disruptor<UpdateOperationEvent> disruptor = new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE,
             ProducerType.SINGLE, new SleepingWaitStrategy());
     disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
-//      final long start = updateOperationEvent.getPartitionedRegion().getPrStats().startSendReplication();
-//      try {
-//        // before distribute: PR's put PR
-//        long token = -1;
-//        final UpdateOperation op = updateOperationEvent.getUpdateOperation();
-//        try {
-//          token = op.startOperation();
-//        } finally {
-//          op.endOperation(token);
-//        }
-//      } finally {
-//        updateOperationEvent.getPartitionedRegion().getPrStats().endSendReplication(start);
-//      }
+      final long start = updateOperationEvent.getPartitionedRegion().getPrStats().startSendReplication();
+      try {
+        // before distribute: PR's put PR
+        long token = -1;
+        final UpdateOperation op = updateOperationEvent.getUpdateOperation();
+        try {
+          token = op.startOperation();
+        } finally {
+          op.endOperation(token);
+        }
+      } finally {
+        updateOperationEvent.getPartitionedRegion().getPrStats().endSendReplication(start);
+      }
     });
     disruptor.start();
     return disruptor;
