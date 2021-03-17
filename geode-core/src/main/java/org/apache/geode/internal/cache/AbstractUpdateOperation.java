@@ -268,23 +268,24 @@ public abstract class AbstractUpdateOperation extends DistributedCacheOperation 
     @Override
     protected boolean operateOnRegion(CacheEvent event, ClusterDistributionManager dm)
         throws EntryNotFoundException {
-      EntryEventImpl ev = (EntryEventImpl) event;
-      DistributedRegion rgn = (DistributedRegion) ev.getRegion();
-      DistributionManager mgr = dm;
-      boolean sendReply = true; // by default tell caller to send ack
-
-      // if (!rgn.hasSeenEvent((InternalCacheEvent)event)) {
-      if (!rgn.isCacheContentProxy()) {
-        basicOperateOnRegion(ev, rgn);
-      }
-      // }
-      else {
-        if (logger.isDebugEnabled()) {
-          logger.debug("UpdateMessage: this cache has already seen this event {}", event);
-        }
-      }
-
-      return sendReply;
+      return true;
+//      EntryEventImpl ev = (EntryEventImpl) event;
+//      DistributedRegion rgn = (DistributedRegion) ev.getRegion();
+//      DistributionManager mgr = dm;
+//      boolean sendReply = true; // by default tell caller to send ack
+//
+//      // if (!rgn.hasSeenEvent((InternalCacheEvent)event)) {
+//      if (!rgn.isCacheContentProxy()) {
+//        basicOperateOnRegion(ev, rgn);
+//      }
+//      // }
+//      else {
+//        if (logger.isDebugEnabled()) {
+//          logger.debug("UpdateMessage: this cache has already seen this event {}", event);
+//        }
+//      }
+//
+//      return sendReply;
     }
 
     // @todo darrel: make this method static?
