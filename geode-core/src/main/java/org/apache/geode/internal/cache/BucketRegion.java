@@ -41,6 +41,7 @@ import java.util.concurrent.locks.Lock;
 
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.SleepingWaitStrategy;
 import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
@@ -263,12 +264,12 @@ public class BucketRegion extends DistributedRegion implements Bucket {
     partitionedRegion = internalRegionArgs.getPartitionedRegion();
     setEventSeqNum();
 
-    disruptor.handleEventsWith((event, sequence, endOfBatch) -> {
+    disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
       final long start = partitionedRegion.getPrStats().startSendReplication();
       try {
         // before distribute: PR's put PR
         long token = -1;
-        final UpdateOperation op = new UpdateOperation(event.getAsyncEvent(), event.getModifiedTime());
+        final UpdateOperation op = updateOperationEvent.get();
         try {
           token = op.startOperation();
         } finally {
@@ -754,26 +755,19 @@ public class BucketRegion extends DistributedRegion implements Bucket {
     }
   }
 
-  private static class AsyncPutEvent {
+  private static class UpdateOperationEvent {
+    private UpdateOperation updateOperation;
 
-    private EntryEventImpl asyncEvent;
-    private long modifiedTime;
-
-    public EntryEventImpl getAsyncEvent() {
-      return asyncEvent;
+    public UpdateOperation get() {
+      return updateOperation;
     }
 
-    public long getModifiedTime() {
-      return modifiedTime;
-    }
-
-    public void set(final EntryEventImpl asyncEvent, final long modifiedTime) {
-      this.asyncEvent = asyncEvent;
-      this.modifiedTime = modifiedTime;
+    public void set(final UpdateOperation updateOperation) {
+      this.updateOperation = updateOperation;
     }
   }
 
-  private final Disruptor<AsyncPutEvent> disruptor = new Disruptor<>(AsyncPutEvent::new, 1024, DaemonThreadFactory.INSTANCE, ProducerType.MULTI, new YieldingWaitStrategy());
+  private final Disruptor<UpdateOperationEvent> disruptor = new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE, ProducerType.MULTI, new SleepingWaitStrategy());
 
   public long basicPutPart2Async(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
       long lastModified, boolean clearConflict) {
@@ -805,11 +799,10 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       // ops
 
       if (!event.isBulkOpInProgress()) {
-        final EntryEventImpl asyncEvent = new EntryEventImpl(event);
-        final RingBuffer<AsyncPutEvent> ringBuffer = disruptor.getRingBuffer();
-        ringBuffer.publishEvent((devent, sequence, e, t) -> {
-          devent.set(e, t);
-        }, asyncEvent, modifiedTime);
+        final RingBuffer<UpdateOperationEvent> ringBuffer = disruptor.getRingBuffer();
+        ringBuffer.publishEvent((updateOperationEvent, sequence, updateOperation) -> {
+          updateOperationEvent.set(updateOperation);
+        }, new UpdateOperation(event, lastModified));
       } else {
         // consolidate the UpdateOperation for each entry into a PutAllMessage
         // basicPutPart3 takes care of this
