@@ -263,23 +263,6 @@ public class BucketRegion extends DistributedRegion implements Bucket {
     redundancy = internalRegionArgs.getPartitionedRegionBucketRedundancy();
     partitionedRegion = internalRegionArgs.getPartitionedRegion();
     setEventSeqNum();
-
-    disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
-      final long start = partitionedRegion.getPrStats().startSendReplication();
-      try {
-        // before distribute: PR's put PR
-        long token = -1;
-        final UpdateOperation op = updateOperationEvent.get();
-        try {
-          token = op.startOperation();
-        } finally {
-          op.endOperation(token);
-        }
-      } finally {
-        partitionedRegion.getPrStats().endSendReplication(start);
-      }
-    });
-    disruptor.start();
   }
 
   // Attempt to direct the GII process to the primary first
@@ -756,19 +739,43 @@ public class BucketRegion extends DistributedRegion implements Bucket {
   }
 
   private static class UpdateOperationEvent {
+    private PartitionedRegion partitionedRegion;
     private UpdateOperation updateOperation;
 
-    public UpdateOperation get() {
+    public PartitionedRegion getPartitionedRegion() {
+      return partitionedRegion;
+    }
+
+    public UpdateOperation getUpdateOperation() {
       return updateOperation;
     }
 
-    public void set(final UpdateOperation updateOperation) {
+    public void set(final PartitionedRegion partitionedRegion, final UpdateOperation updateOperation) {
+      this.partitionedRegion = partitionedRegion;
       this.updateOperation = updateOperation;
     }
+
   }
 
-  private final Disruptor<UpdateOperationEvent> disruptor = new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE, ProducerType.MULTI, new SleepingWaitStrategy());
-
+  private static final Disruptor<UpdateOperationEvent> disruptor = new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE, ProducerType.MULTI, new SleepingWaitStrategy());
+  static {
+    disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
+      final long start = updateOperationEvent.getPartitionedRegion().getPrStats().startSendReplication();
+      try {
+        // before distribute: PR's put PR
+        long token = -1;
+        final UpdateOperation op = updateOperationEvent.getUpdateOperation();
+        try {
+          token = op.startOperation();
+        } finally {
+          op.endOperation(token);
+        }
+      } finally {
+        updateOperationEvent.getPartitionedRegion().getPrStats().endSendReplication(start);
+      }
+    });
+    disruptor.start();
+  }
   public long basicPutPart2Async(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
       long lastModified, boolean clearConflict) {
     // Assumed this is called with entry synchrony
@@ -800,9 +807,9 @@ public class BucketRegion extends DistributedRegion implements Bucket {
 
       if (!event.isBulkOpInProgress()) {
         final RingBuffer<UpdateOperationEvent> ringBuffer = disruptor.getRingBuffer();
-        ringBuffer.publishEvent((updateOperationEvent, sequence, updateOperation) -> {
-          updateOperationEvent.set(updateOperation);
-        }, new UpdateOperation(new EntryEventImpl(event), lastModified));
+        ringBuffer.publishEvent((updateOperationEvent, sequence, partitionedRegion, updateOperation) -> {
+          updateOperationEvent.set(partitionedRegion, updateOperation);
+        }, partitionedRegion, new UpdateOperation(new EntryEventImpl(event), lastModified));
       } else {
         // consolidate the UpdateOperation for each entry into a PutAllMessage
         // basicPutPart3 takes care of this
