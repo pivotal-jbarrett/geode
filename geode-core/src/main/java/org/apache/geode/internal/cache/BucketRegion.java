@@ -802,7 +802,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
         final RingBuffer<UpdateOperationEvent> ringBuffer = disruptor.getRingBuffer();
         ringBuffer.publishEvent((updateOperationEvent, sequence, updateOperation) -> {
           updateOperationEvent.set(updateOperation);
-        }, new UpdateOperation(event, lastModified));
+        }, new UpdateOperation(new EntryEventImpl(event), lastModified));
       } else {
         // consolidate the UpdateOperation for each entry into a PutAllMessage
         // basicPutPart3 takes care of this
