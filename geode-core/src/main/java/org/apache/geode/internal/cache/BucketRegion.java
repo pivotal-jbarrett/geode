@@ -757,8 +757,9 @@ public class BucketRegion extends DistributedRegion implements Bucket {
 
   }
 
-  private static final Disruptor<UpdateOperationEvent> disruptor = new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE, ProducerType.MULTI, new SleepingWaitStrategy());
-  static {
+  private static final ThreadLocal<Disruptor<UpdateOperationEvent>> disruptor = ThreadLocal.withInitial(() -> {
+    final Disruptor<UpdateOperationEvent> disruptor = new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE,
+            ProducerType.SINGLE, new YieldingWaitStrategy());
     disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
       final long start = updateOperationEvent.getPartitionedRegion().getPrStats().startSendReplication();
       try {
@@ -775,9 +776,11 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       }
     });
     disruptor.start();
-  }
-  public long basicPutPart2Async(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
-      long lastModified, boolean clearConflict) {
+    return disruptor;
+  });
+
+  public long basicPutPart2Async(final EntryEventImpl event, final RegionEntry entry, final boolean isInitialized,
+      final long lastModified, final boolean clearConflict) {
     // Assumed this is called with entry synchrony
 
     // Typically UpdateOperation is called with the
@@ -791,8 +794,8 @@ public class BucketRegion extends DistributedRegion implements Bucket {
     }
     if (!event.isOriginRemote()) {
       if (event.getVersionTag() == null || event.getVersionTag().isGatewayTag()) {
-        boolean eventHasDelta = event.getDeltaBytes() != null;
-        VersionTag v = entry.generateVersionTag(null, eventHasDelta, this, event);
+        final boolean eventHasDelta = event.getDeltaBytes() != null;
+        final VersionTag v = entry.generateVersionTag(null, eventHasDelta, this, event);
         if (v != null) {
           if (logger.isDebugEnabled()) {
             logger.debug("generated version tag {} in region {}", v, getName());
@@ -806,10 +809,10 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       // ops
 
       if (!event.isBulkOpInProgress()) {
-        final RingBuffer<UpdateOperationEvent> ringBuffer = disruptor.getRingBuffer();
+        final RingBuffer<UpdateOperationEvent> ringBuffer = disruptor.get().getRingBuffer();
         ringBuffer.publishEvent((updateOperationEvent, sequence, partitionedRegion, updateOperation) -> {
           updateOperationEvent.set(partitionedRegion, updateOperation);
-        }, partitionedRegion, new UpdateOperation(new EntryEventImpl(event), lastModified));
+        }, partitionedRegion, new UpdateOperation(new EntryEventImpl(event), modifiedTime));
       } else {
         // consolidate the UpdateOperation for each entry into a PutAllMessage
         // basicPutPart3 takes care of this
