@@ -15,40 +15,25 @@
 
 package org.apache.geode.internal.cache;
 
-import static java.lang.Thread.yield;
 
 import java.io.DataOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
-import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.SleepingWaitStrategy;
-import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import com.lmax.disruptor.util.DaemonThreadFactory;
 import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import org.apache.geode.CancelException;
 import org.apache.geode.CopyHelper;
@@ -696,19 +681,23 @@ public class BucketRegion extends DistributedRegion implements Bucket {
     public boolean clearConflict;
   }
 
-  private static final ThreadLocal<Disruptor<BasicPutPart2Event>> disruptor2 = ThreadLocal.withInitial(() -> {
-    final Disruptor<BasicPutPart2Event> disruptor = new Disruptor<>(BasicPutPart2Event::new, 1024, DaemonThreadFactory.INSTANCE,
-        ProducerType.SINGLE, new SleepingWaitStrategy());
-    disruptor.handleEventsWith((basicPutPart2, sequence, endOfBatch) -> {
-      basicPutPart2.bucketRegion.basicPutPart2Sync(basicPutPart2.entryEvent, basicPutPart2.regionEntry, basicPutPart2.isInitialized, basicPutPart2.lastModified, basicPutPart2.clearConflict);
-    });
-    disruptor.start();
-    return disruptor;
-  });
+  private static final ThreadLocal<Disruptor<BasicPutPart2Event>> disruptor2 =
+      ThreadLocal.withInitial(() -> {
+        final Disruptor<BasicPutPart2Event> disruptor =
+            new Disruptor<>(BasicPutPart2Event::new, 1024, DaemonThreadFactory.INSTANCE,
+                ProducerType.SINGLE, new SleepingWaitStrategy());
+        disruptor.handleEventsWith((basicPutPart2, sequence, endOfBatch) -> {
+          basicPutPart2.bucketRegion.basicPutPart2Sync(basicPutPart2.entryEvent,
+              basicPutPart2.regionEntry, basicPutPart2.isInitialized, basicPutPart2.lastModified,
+              basicPutPart2.clearConflict);
+        });
+        disruptor.start();
+        return disruptor;
+      });
 
 
   public long basicPutPart2Async2(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
-                            long lastModified, boolean clearConflict) {
+      long lastModified, boolean clearConflict) {
     final long modifiedTime = event.getEventTime(lastModified);
 
     final RingBuffer<BasicPutPart2Event> ringBuffer = disruptor2.get().getRingBuffer();
@@ -725,7 +714,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
   }
 
   public long basicPutPart2Sync(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
-                                  long lastModified, boolean clearConflict) {
+      long lastModified, boolean clearConflict) {
     // Assumed this is called with entry synchrony
 
     // Typically UpdateOperation is called with the
@@ -793,36 +782,41 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       return updateOperation;
     }
 
-    public void set(final PartitionedRegion partitionedRegion, final UpdateOperation updateOperation) {
+    public void set(final PartitionedRegion partitionedRegion,
+        final UpdateOperation updateOperation) {
       this.partitionedRegion = partitionedRegion;
       this.updateOperation = updateOperation;
     }
 
   }
 
-  private static final ThreadLocal<Disruptor<UpdateOperationEvent>> disruptor = ThreadLocal.withInitial(() -> {
-    final Disruptor<UpdateOperationEvent> disruptor = new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE,
-            ProducerType.SINGLE, new SleepingWaitStrategy());
-    disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
-      final long start = updateOperationEvent.getPartitionedRegion().getPrStats().startSendReplication();
-      try {
-        // before distribute: PR's put PR
-        long token = -1;
-        final UpdateOperation op = updateOperationEvent.getUpdateOperation();
-        try {
-          token = op.startOperation();
-        } finally {
-          op.endOperation(token);
-        }
-      } finally {
-        updateOperationEvent.getPartitionedRegion().getPrStats().endSendReplication(start);
-      }
-    });
-    disruptor.start();
-    return disruptor;
-  });
+  private static final ThreadLocal<Disruptor<UpdateOperationEvent>> disruptor =
+      ThreadLocal.withInitial(() -> {
+        final Disruptor<UpdateOperationEvent> disruptor =
+            new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE,
+                ProducerType.SINGLE, new SleepingWaitStrategy());
+        disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
+          final long start =
+              updateOperationEvent.getPartitionedRegion().getPrStats().startSendReplication();
+          try {
+            // before distribute: PR's put PR
+            long token = -1;
+            final UpdateOperation op = updateOperationEvent.getUpdateOperation();
+            try {
+              token = op.startOperation();
+            } finally {
+              op.endOperation(token);
+            }
+          } finally {
+            updateOperationEvent.getPartitionedRegion().getPrStats().endSendReplication(start);
+          }
+        });
+        disruptor.start();
+        return disruptor;
+      });
 
-  public long basicPutPart2Async(final EntryEventImpl event, final RegionEntry entry, final boolean isInitialized,
+  public long basicPutPart2Async(final EntryEventImpl event, final RegionEntry entry,
+      final boolean isInitialized,
       final long lastModified, final boolean clearConflict) {
     // Assumed this is called with entry synchrony
 
@@ -853,9 +847,10 @@ public class BucketRegion extends DistributedRegion implements Bucket {
 
       if (!event.isBulkOpInProgress()) {
         final RingBuffer<UpdateOperationEvent> ringBuffer = disruptor.get().getRingBuffer();
-        ringBuffer.publishEvent((updateOperationEvent, sequence, partitionedRegion, updateOperation) -> {
-          updateOperationEvent.set(partitionedRegion, updateOperation);
-        }, partitionedRegion, new UpdateOperation(new EntryEventImpl(event), modifiedTime));
+        ringBuffer
+            .publishEvent((updateOperationEvent, sequence, partitionedRegion, updateOperation) -> {
+              updateOperationEvent.set(partitionedRegion, updateOperation);
+            }, partitionedRegion, new UpdateOperation(new EntryEventImpl(event), modifiedTime));
       } else {
         // consolidate the UpdateOperation for each entry into a PutAllMessage
         // basicPutPart3 takes care of this
