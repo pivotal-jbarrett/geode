@@ -681,9 +681,51 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       long lastModified, boolean clearConflict) {
 
     if (scope.isDistributedNoAck()) {
-      return basicPutPart2Async(event, entry, isInitialized, lastModified, clearConflict);
+      return basicPutPart2Async2(event, entry, isInitialized, lastModified, clearConflict);
     }
 
+    return basicPutPart2Sync(event, entry, isInitialized, lastModified, clearConflict);
+  }
+
+  private static class BasicPutPart2Event {
+    public BucketRegion bucketRegion;
+    public EntryEventImpl entryEvent;
+    public RegionEntry regionEntry;
+    public boolean isInitialized;
+    public long lastModified;
+    public boolean clearConflict;
+  }
+
+  private static final ThreadLocal<Disruptor<BasicPutPart2Event>> disruptor2 = ThreadLocal.withInitial(() -> {
+    final Disruptor<BasicPutPart2Event> disruptor = new Disruptor<>(BasicPutPart2Event::new, 1024, DaemonThreadFactory.INSTANCE,
+        ProducerType.SINGLE, new SleepingWaitStrategy());
+    disruptor.handleEventsWith((basicPutPart2, sequence, endOfBatch) -> {
+      basicPutPart2.bucketRegion.basicPutPart2Sync(basicPutPart2.entryEvent, basicPutPart2.regionEntry, basicPutPart2.isInitialized, basicPutPart2.lastModified, basicPutPart2.clearConflict);
+    });
+    disruptor.start();
+    return disruptor;
+  });
+
+
+  public long basicPutPart2Async2(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
+                            long lastModified, boolean clearConflict) {
+    final long modifiedTime = event.getEventTime(lastModified);
+
+    final RingBuffer<BasicPutPart2Event> ringBuffer = disruptor2.get().getRingBuffer();
+    ringBuffer.publishEvent((basicPutPart2, sequence) -> {
+      basicPutPart2.bucketRegion = this;
+      basicPutPart2.entryEvent = event;
+      basicPutPart2.regionEntry = entry;
+      basicPutPart2.isInitialized = isInitialized;
+      basicPutPart2.lastModified = lastModified;
+      basicPutPart2.clearConflict = clearConflict;
+    });
+
+    return modifiedTime;
+  }
+
+  public long basicPutPart2Sync(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
+                                  long lastModified, boolean clearConflict) {
     // Assumed this is called with entry synchrony
 
     // Typically UpdateOperation is called with the
@@ -737,6 +779,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       }
     }
   }
+
 
   private static class UpdateOperationEvent {
     private PartitionedRegion partitionedRegion;
