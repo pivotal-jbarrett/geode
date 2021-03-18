@@ -5677,7 +5677,7 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
     final boolean isNewKey = event.getOperation().isCreate();
 
     // Invoke callbacks only if we are not creating a tombstone
-//    final boolean invokeCallbacks = event.basicGetNewValue() != Token.TOMBSTONE;
+    final boolean invokeCallbacks = event.basicGetNewValue() != Token.TOMBSTONE;
 
     if (isNewKey) {
       updateStatsForCreate();
@@ -5706,41 +5706,41 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
       }
     }
 
-//    if (invokeCallbacks) {
-//      boolean doCallback = false;
-//      if (isInitialized) {
-//        // skip wan notification during import newwan moves notification to here
-//        // from invokePutCallbacks
-//        if (event.isGenerateCallbacks()) {
-//          doCallback = true;
-//        }
-//      } else if (isUsedForPartitionedRegionBucket) {
-//        // invokePutCallbacks in BucketRegion will be more discriminating
-//        doCallback = true;
-//      }
-//
-//      if (doCallback) {
-//        if (event.isBulkOpInProgress() && isUsedForPartitionedRegionBucket) {
-//          if (logger.isDebugEnabled()) {
-//            logger.debug(
-//                "For bulk operation on bucket region, not to notify gateway sender earlier.");
-//          }
-//        } else {
-//          notifyGatewaySender(event.getOperation().isUpdate() ? EnumListenerEvent.AFTER_UPDATE
-//              : EnumListenerEvent.AFTER_CREATE, event);
-//        }
-//
-//        // Notify listeners
-//        if (!event.isBulkOpInProgress()) {
-//          try {
-//            entry.dispatchListenerEvents(event);
-//          } catch (InterruptedException ignore) {
-//            Thread.currentThread().interrupt();
-//            stopper.checkCancelInProgress(null);
-//          }
-//        }
-//      }
-//    }
+    if (invokeCallbacks) {
+      boolean doCallback = false;
+      if (isInitialized) {
+        // skip wan notification during import newwan moves notification to here
+        // from invokePutCallbacks
+        if (event.isGenerateCallbacks()) {
+          doCallback = true;
+        }
+      } else if (isUsedForPartitionedRegionBucket) {
+        // invokePutCallbacks in BucketRegion will be more discriminating
+        doCallback = true;
+      }
+
+      if (doCallback) {
+        if (event.isBulkOpInProgress() && isUsedForPartitionedRegionBucket) {
+          if (logger.isDebugEnabled()) {
+            logger.debug(
+                "For bulk operation on bucket region, not to notify gateway sender earlier.");
+          }
+        } else {
+          notifyGatewaySender(event.getOperation().isUpdate() ? EnumListenerEvent.AFTER_UPDATE
+              : EnumListenerEvent.AFTER_CREATE, event);
+        }
+
+        // Notify listeners
+        if (!event.isBulkOpInProgress()) {
+          try {
+            entry.dispatchListenerEvents(event);
+          } catch (InterruptedException ignore) {
+            Thread.currentThread().interrupt();
+            stopper.checkCancelInProgress(null);
+          }
+        }
+      }
+    }
     return lastModifiedTime;
   }
 
