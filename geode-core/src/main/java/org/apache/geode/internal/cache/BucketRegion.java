@@ -665,7 +665,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
   public long basicPutPart2(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
       long lastModified, boolean clearConflict) {
 
-    if (scope.isDistributedNoAck()) {
+    if (!event.isOriginRemote() && scope.isDistributedNoAck()) {
       return basicPutPart2Async2(event, entry, isInitialized, lastModified, clearConflict);
     }
 
