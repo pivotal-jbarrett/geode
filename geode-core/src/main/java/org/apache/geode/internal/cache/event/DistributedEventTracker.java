@@ -270,7 +270,7 @@ public class DistributedEventTracker implements EventTracker {
   }
 
   private ThreadIdentifier createThreadIDFromEvent(EventID eventID) {
-    return new ThreadIdentifier(eventID.getMembershipID(), eventID.getThreadID());
+    return eventID.getThreadIdentifier();
   }
 
   /**
