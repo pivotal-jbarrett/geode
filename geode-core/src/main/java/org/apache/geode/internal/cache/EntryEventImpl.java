@@ -20,6 +20,7 @@ import static org.apache.geode.internal.offheap.annotations.OffHeapIdentifier.EN
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
@@ -773,17 +774,17 @@ public class EntryEventImpl implements InternalEntryEvent, InternalCacheEvent,
       @Unretained
       Object ov = handleNotAvailableOldValue();
       if (ov != null) {
-        boolean doCopyOnRead = getRegion().isCopyOnRead();
         if (ov instanceof CachedDeserializable) {
-          return callWithOffHeapLock((CachedDeserializable) ov, oldValueCD -> {
-            if (doCopyOnRead) {
-              return oldValueCD.getDeserializedWritableCopy(getRegion(), this.re);
+          return callWithOffHeapLock((CachedDeserializable) ov, (oldValueCD, self) -> {
+            final InternalRegion region = self.getRegion();
+            if (region.isCopyOnRead()) {
+              return oldValueCD.getDeserializedWritableCopy(region, self.re);
             } else {
-              return oldValueCD.getDeserializedValue(getRegion(), this.re);
+              return oldValueCD.getDeserializedValue(region, self.re);
             }
-          });
+          }, this);
         } else {
-          if (doCopyOnRead) {
+          if (getRegion().isCopyOnRead()) {
             return CopyHelper.copy(ov);
           } else {
             return ov;
@@ -1100,7 +1101,10 @@ public class EntryEventImpl implements InternalEntryEvent, InternalCacheEvent,
    * Invoke the given function with a lock if the given value is offheap.
    *
    * @return the value returned from invoking the function
+   *
+   * @deprecated use {@link #callWithOffHeapLock(Object, BiFunction, Object)} to avoid capture allocation
    */
+  @Deprecated
   private <T, R> R callWithOffHeapLock(T value, Function<T, R> function) {
     if (isOffHeapReference(value)) {
       synchronized (this.offHeapLock) {
@@ -1112,6 +1116,25 @@ public class EntryEventImpl implements InternalEntryEvent, InternalCacheEvent,
       }
     } else {
       return function.apply(value);
+    }
+  }
+
+  /**
+   * Invoke the given function with a lock if the given value is offheap.
+   *
+   * @return the value returned from invoking the function
+   */
+  private <T, R, A> R callWithOffHeapLock(T value, BiFunction<T, A, R> function, A arg) {
+    if (isOffHeapReference(value)) {
+      synchronized (this.offHeapLock) {
+        if (!this.offHeapOk) {
+          throw new IllegalStateException(
+              "Attempt to access off heap value after the EntryEvent was released.");
+        }
+        return function.apply(value, arg);
+      }
+    } else {
+      return function.apply(value, arg);
     }
   }
 
