@@ -665,7 +665,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
   public long basicPutPart2(EntryEventImpl event, RegionEntry entry, boolean isInitialized,
       long lastModified, boolean clearConflict) {
 
-    if (!event.isOriginRemote() /*&& scope.isDistributedNoAck()*/) {
+    if (!event.isOriginRemote() && scope.isDistributedNoAck()) {
       return basicPutPart2Async2(event, entry, isInitialized, lastModified, clearConflict);
     }
 
@@ -767,6 +767,97 @@ public class BucketRegion extends DistributedRegion implements Bucket {
         op.endOperation(token);
       }
     }
+  }
+
+
+  private static class UpdateOperationEvent {
+    private PartitionedRegion partitionedRegion;
+    private UpdateOperation updateOperation;
+
+    public PartitionedRegion getPartitionedRegion() {
+      return partitionedRegion;
+    }
+
+    public UpdateOperation getUpdateOperation() {
+      return updateOperation;
+    }
+
+    public void set(final PartitionedRegion partitionedRegion,
+        final UpdateOperation updateOperation) {
+      this.partitionedRegion = partitionedRegion;
+      this.updateOperation = updateOperation;
+    }
+
+  }
+
+  private static final ThreadLocal<Disruptor<UpdateOperationEvent>> disruptor =
+      ThreadLocal.withInitial(() -> {
+        final Disruptor<UpdateOperationEvent> disruptor =
+            new Disruptor<>(UpdateOperationEvent::new, 1024, DaemonThreadFactory.INSTANCE,
+                ProducerType.SINGLE, new SleepingWaitStrategy());
+        disruptor.handleEventsWith((updateOperationEvent, sequence, endOfBatch) -> {
+          final long start =
+              updateOperationEvent.getPartitionedRegion().getPrStats().startSendReplication();
+          try {
+            // before distribute: PR's put PR
+            long token = -1;
+            final UpdateOperation op = updateOperationEvent.getUpdateOperation();
+            try {
+              token = op.startOperation();
+            } finally {
+              op.endOperation(token);
+            }
+          } finally {
+            updateOperationEvent.getPartitionedRegion().getPrStats().endSendReplication(start);
+          }
+        });
+        disruptor.start();
+        return disruptor;
+      });
+
+  public long basicPutPart2Async(final EntryEventImpl event, final RegionEntry entry,
+      final boolean isInitialized,
+      final long lastModified, final boolean clearConflict) {
+    // Assumed this is called with entry synchrony
+
+    // Typically UpdateOperation is called with the
+    // timestamp returned from basicPutPart2, but as a bucket we want to do
+    // distribution *before* we do basicPutPart2.
+    final long modifiedTime = event.getEventTime(lastModified);
+
+    // Update the get stats if necessary.
+    if (partitionedRegion.getDataStore().hasClientInterest(event)) {
+      updateStatsForGet(entry, true);
+    }
+    if (!event.isOriginRemote()) {
+      if (event.getVersionTag() == null || event.getVersionTag().isGatewayTag()) {
+        final boolean eventHasDelta = event.getDeltaBytes() != null;
+        final VersionTag v = entry.generateVersionTag(null, eventHasDelta, this, event);
+        if (v != null) {
+          if (logger.isDebugEnabled()) {
+            logger.debug("generated version tag {} in region {}", v, getName());
+          }
+        }
+      }
+
+      // This code assumes it is safe ignore token mode (GII in progress)
+      // because it assumes when the origin of the event is local,
+      // the GII has completed and the region is initialized and open for local
+      // ops
+
+      if (!event.isBulkOpInProgress()) {
+        final RingBuffer<UpdateOperationEvent> ringBuffer = disruptor.get().getRingBuffer();
+        ringBuffer
+            .publishEvent((updateOperationEvent, sequence, partitionedRegion, updateOperation) -> {
+              updateOperationEvent.set(partitionedRegion, updateOperation);
+            }, partitionedRegion, new UpdateOperation(new EntryEventImpl(event), modifiedTime));
+      } else {
+        // consolidate the UpdateOperation for each entry into a PutAllMessage
+        // basicPutPart3 takes care of this
+      }
+    }
+
+    return super.basicPutPart2(event, entry, isInitialized, lastModified, clearConflict);
   }
 
   @Override
