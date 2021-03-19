@@ -16,6 +16,8 @@
  */
 package org.apache.geode.internal.cache.map;
 
+import java.util.function.Consumer;
+
 import org.apache.logging.log4j.Logger;
 
 import org.apache.geode.cache.DiskAccessException;
@@ -113,15 +115,23 @@ public abstract class AbstractRegionMapPut {
 
   protected abstract void serializeNewValueIfNeeded();
 
-  protected void runWhileLockedForCacheModification(Runnable r) {
+  protected <T> void runWhileLockedForCacheModification(final Consumer<T> r, final T arg) {
     final boolean locked = getOwner().lockWhenRegionIsInitializing();
     try {
-      r.run();
+      r.accept(arg);
     } finally {
       if (locked) {
         getOwner().unlockWhenRegionIsInitializing();
       }
     }
+  }
+
+  /**
+   * @deprecated use {@link #runWhileLockedForCacheModification(Consumer, Object)}
+   */
+  @Deprecated
+  protected void runWhileLockedForCacheModification(Runnable r) {
+    runWhileLockedForCacheModification((s) -> r.run(), r);
   }
 
   protected abstract void setOldValueForDelta();
@@ -166,7 +176,7 @@ public abstract class AbstractRegionMapPut {
    */
   public RegionEntry put() {
     serializeNewValueIfNeeded();
-    runWhileLockedForCacheModification(this::doPut);
+    runWhileLockedForCacheModification(AbstractRegionMapPut::doPut, this);
     if (isCompleted()) {
       return getRegionEntry();
     } else {
@@ -177,7 +187,7 @@ public abstract class AbstractRegionMapPut {
   private void doPut() {
     final boolean disabledEviction = getRegionMap().disableLruUpdateCallback();
     try {
-      doWithIndexInUpdateMode(this::doPutRetryingIfNeeded);
+      doWithIndexInUpdateMode(AbstractRegionMapPut::doPutRetryingIfNeeded, this);
     } catch (DiskAccessException dae) {
       getOwner().handleDiskAccessException(dae);
       throw dae;
@@ -186,16 +196,16 @@ public abstract class AbstractRegionMapPut {
     }
   }
 
-  private void doWithIndexInUpdateMode(Runnable r) {
+  private <T> void doWithIndexInUpdateMode(final Consumer<T> r, final T arg) {
     final IndexManager oqlIndexManager = getInitializedIndexManager();
     if (oqlIndexManager != null) {
       try {
-        r.run();
+        r.accept(arg);
       } finally {
         oqlIndexManager.countDownIndexUpdaters();
       }
     } else {
-      r.run();
+      r.accept(arg);
     }
   }
 
