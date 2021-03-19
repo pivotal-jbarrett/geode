@@ -124,7 +124,7 @@ public class NettyRedisServer {
     ServerBootstrap serverBootstrap =
         new ServerBootstrap()
             .group(selectorGroup, workerGroup)
-            .channel(EpollServerSocketChannel.class)
+            .channel(NioServerSocketChannel.class)
             .childHandler(createChannelInitializer())
             .option(ChannelOption.SO_REUSEADDR, true)
             .childOption(ChannelOption.SO_SNDBUF, 1024 * 1024)
