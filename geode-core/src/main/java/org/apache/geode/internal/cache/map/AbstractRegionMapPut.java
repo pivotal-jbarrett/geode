@@ -303,18 +303,22 @@ public abstract class AbstractRegionMapPut {
       return;
     }
     invokeCacheWriter();
-    notifyIndex(true);
-    try {
-      doPutAndDeliverEvent();
-    } finally {
-      notifyIndex(false);
-    }
+    runWithIndexUpdatingInProgress(AbstractRegionMapPut::doPutAndDeliverEvent, this);
   }
 
   private void doPutAndDeliverEvent() {
     createOrUpdateEntry();
     doBeforeCompletionActions();
     setCompleted(true);
+  }
+
+  private <T> void runWithIndexUpdatingInProgress(Consumer<T> r, T arg) {
+    notifyIndex(true);
+    try {
+      r.accept(arg);
+    } finally {
+      notifyIndex(false);
+    }
   }
 
   private void notifyIndex(boolean isUpdating) {
