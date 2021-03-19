@@ -293,22 +293,18 @@ public abstract class AbstractRegionMapPut {
       return;
     }
     invokeCacheWriter();
-    runWithIndexUpdatingInProgress(this::doPutAndDeliverEvent);
+    notifyIndex(true);
+    try {
+      doPutAndDeliverEvent();
+    } finally {
+      notifyIndex(false);
+    }
   }
 
   private void doPutAndDeliverEvent() {
     createOrUpdateEntry();
     doBeforeCompletionActions();
     setCompleted(true);
-  }
-
-  private void runWithIndexUpdatingInProgress(Runnable r) {
-    notifyIndex(true);
-    try {
-      r.run();
-    } finally {
-      notifyIndex(false);
-    }
   }
 
   private void notifyIndex(boolean isUpdating) {
