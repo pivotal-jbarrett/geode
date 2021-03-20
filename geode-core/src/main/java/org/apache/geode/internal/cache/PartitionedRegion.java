@@ -3306,8 +3306,7 @@ public class PartitionedRegion extends LocalRegion
     checkForNoAccess();
     discoverJTA();
     boolean miss = true;
-    clientEvent.setKeyInfo(checkOrGetKeyInfo(clientEvent.getKeyInfo(), key, aCallbackArgument));
-    Object value = getDataView().findObject(clientEvent.getKeyInfo(), this,
+    Object value = getDataView().findObject(getKeyInfo(key, aCallbackArgument), this,
         true/* isCreate */, generateCallbacks, null /* no local value */, disableCopyOnRead,
         preferCD, requestingClient, clientEvent, returnTombstones);
     if (value != null && !Token.isInvalid(value)) {
@@ -9650,13 +9649,6 @@ public class PartitionedRegion extends LocalRegion
       bucketId = PartitionedRegionHelper.getHashKey(this, null, key, value, callbackArg);
     }
     return new KeyInfo(key, callbackArg, bucketId);
-  }
-
-  KeyInfo checkOrGetKeyInfo(final KeyInfo keyInfo, Object key, Object callbackArg) {
-    if (null == keyInfo) {
-      return getKeyInfo(key, callbackArg);
-    }
-    return keyInfo;
   }
 
   public static class SizeEntry implements Serializable {

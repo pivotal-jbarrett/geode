@@ -37,39 +37,41 @@ public class KeyInfo {
   private final Object value;
 
   public KeyInfo(Object key, Object value, Object callbackArg) {
-    this(key, callbackArg, UNKNOWN_BUCKET, value);
-  }
-
-  public KeyInfo(Object key, Object callbackArg, int bucketId) {
-    this(key, callbackArg, bucketId, null);
-  }
-
-  public KeyInfo(KeyInfo keyInfo) {
-    this(keyInfo.key, keyInfo.callbackArg, keyInfo.bucketId, keyInfo.value);
-  }
-
-  private KeyInfo(final Object key, final Object callbackArg, final int bucketId, final Object value) {
     this.key = key;
     this.callbackArg = callbackArg;
-    this.bucketId = bucketId;
+    this.bucketId = UNKNOWN_BUCKET;
     this.value = value;
   }
 
+  public KeyInfo(Object key, Object callbackArg, int bucketId) {
+    this.key = key;
+    this.callbackArg = callbackArg;
+    this.bucketId = bucketId;
+    this.value = null;
+  }
+
+  public KeyInfo(KeyInfo keyInfo) {
+    this.bucketId = keyInfo.bucketId;
+    this.callbackArg = keyInfo.callbackArg;
+    this.value = keyInfo.value;
+    this.key = keyInfo.key;
+  }
+
   public Object getKey() {
-    return key;
+    return this.key;
   }
 
   public Object getCallbackArg() {
-    return callbackArg;
+    return this.callbackArg;
   }
 
   @Unretained(ENTRY_EVENT_NEW_VALUE)
   public Object getValue() {
-    return value;
+    return this.value;
   }
 
   public int getBucketId() {
-    return bucketId;
+    return this.bucketId;
   }
 
   public void setKey(Object key) {
@@ -93,6 +95,9 @@ public class KeyInfo {
    */
   public boolean isCheckPrimary() throws UnsupportedOperationInTransactionException {
     return true;
+    // throw new UnsupportedOperationInTransactionException(
+    // String.format("precommit() operation %s meant for Dist Tx is not supported",
+    // "isCheckPrimary"));
   }
 
   /*
@@ -100,7 +105,9 @@ public class KeyInfo {
    */
   public void setCheckPrimary(boolean checkPrimary)
       throws UnsupportedOperationInTransactionException {
-    throw new UnsupportedOperationInTransactionException("precommit() operation setCheckPrimary meant for Dist Tx is not supported");
+    throw new UnsupportedOperationInTransactionException(
+        String.format("precommit() operation %s meant for Dist Tx is not supported",
+            "setCheckPrimary"));
   }
 
   public boolean isDistKeyInfo() {

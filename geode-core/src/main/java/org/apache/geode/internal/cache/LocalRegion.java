@@ -1361,8 +1361,7 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
     long start = startGet();
     boolean isMiss = true;
     try {
-      clientEvent.setKeyInfo(checkOrGetKeyInfo(clientEvent.getKeyInfo(), key, aCallbackArgument));
-      final KeyInfo keyInfo = clientEvent.getKeyInfo();
+      KeyInfo keyInfo = getKeyInfo(key, aCallbackArgument);
       Object value = getDataView().getDeserializedValue(keyInfo, this, true, disableCopyOnRead,
           preferCD, clientEvent, returnTombstones, retainResult, true);
       final boolean isCreate = value == null;
@@ -10296,14 +10295,6 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
   @Override
   public KeyInfo getKeyInfo(Object key, Object value, Object callbackArg) {
     return new KeyInfo(key, null, callbackArg);
-  }
-
-  private KeyInfo checkOrGetKeyInfo(final KeyInfo keyInfo, final Object key, final Object callbackArg) {
-    if (null == keyInfo) {
-      return getKeyInfo(key, callbackArg);
-    }
-
-    return keyInfo;
   }
 
   /**
