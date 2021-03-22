@@ -1960,6 +1960,13 @@ public class PartitionedRegionDataStore implements HasCachePerfStats {
         requestingClient, clientEvent, returnTombstones, false);
   }
 
+  public Object getLocally(final int bucketId, final Object key, final Object aCallbackArgument,
+                           final boolean disableCopyOnRead, final boolean preferCD, final ClientProxyMembershipID requestingClient,
+                           final EntryEventImpl clientEvent, final boolean returnTombstones, final boolean opScopeIsLocal)
+      throws PrimaryBucketException, ForceReattemptException, PRLocallyDestroyedException {
+      return getLocally( bucketId,   key,   aCallbackArgument, disableCopyOnRead,  preferCD,  requestingClient, clientEvent,  returnTombstones,  opScopeIsLocal, null);
+  }
+
   /**
    * Returns value corresponding to this key.
    *
@@ -1974,11 +1981,11 @@ public class PartitionedRegionDataStore implements HasCachePerfStats {
    * @throws PrimaryBucketException if the locally managed bucket is not primary
    * @throws PRLocallyDestroyedException if the PartitionRegion is locally destroyed
    */
-  public Object getLocally(int bucketId, final Object key, final Object aCallbackArgument,
-      boolean disableCopyOnRead, boolean preferCD, ClientProxyMembershipID requestingClient,
-      EntryEventImpl clientEvent, boolean returnTombstones, boolean opScopeIsLocal)
+  public Object getLocally(final int bucketId, final Object key, final Object aCallbackArgument,
+                           final boolean disableCopyOnRead, final boolean preferCD, final ClientProxyMembershipID requestingClient,
+                           final EntryEventImpl clientEvent, final boolean returnTombstones, final boolean opScopeIsLocal, final KeyInfo keyInfo)
       throws PrimaryBucketException, ForceReattemptException, PRLocallyDestroyedException {
-    final BucketRegion bucketRegion = getInitializedBucketForId(key, Integer.valueOf(bucketId));
+    final BucketRegion bucketRegion = getInitializedBucketForId(key, bucketId);
     // check for primary (when a loader is present) done deeper in the BucketRegion
     Object ret = null;
     if (logger.isDebugEnabled()) {
@@ -1989,7 +1996,7 @@ public class PartitionedRegionDataStore implements HasCachePerfStats {
     invokeBucketReadHook();
     try {
       ret = bucketRegion.get(key, aCallbackArgument, true, disableCopyOnRead, preferCD,
-          requestingClient, clientEvent, returnTombstones, opScopeIsLocal, false);
+          requestingClient, clientEvent, returnTombstones, opScopeIsLocal, false, keyInfo);
       checkIfBucketMoved(bucketRegion);
     } catch (RegionDestroyedException rde) {
       if (this.partitionedRegion.isLocallyDestroyed || this.partitionedRegion.isClosed) {

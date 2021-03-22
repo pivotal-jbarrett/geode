@@ -3522,7 +3522,7 @@ public class PartitionedRegion extends LocalRegion
       }
 
       obj = getFromBucket(targetNode, bucketId, key, aCallbackArgument, disableCopyOnRead, preferCD,
-          requestingClient, clientEvent, returnTombstones, allowRetry);
+          requestingClient, clientEvent, returnTombstones, allowRetry, keyInfo);
     } finally {
       this.prStats.endGet(startTime);
     }
@@ -4090,7 +4090,7 @@ public class PartitionedRegion extends LocalRegion
   private Object getFromBucket(final InternalDistributedMember targetNode, int bucketId,
       final Object key, final Object aCallbackArgument, boolean disableCopyOnRead, boolean preferCD,
       ClientProxyMembershipID requestingClient, EntryEventImpl clientEvent,
-      boolean returnTombstones, boolean allowRetry) {
+      boolean returnTombstones, boolean allowRetry, final KeyInfo keyInfo) {
     final boolean isDebugEnabled = logger.isDebugEnabled();
 
     final int retryAttempts = calcRetry();
