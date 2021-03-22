@@ -1344,15 +1344,22 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
         clientEvent, returnTombstones, opScopeIsLocal, false);
   }
 
+  Object get(final Object key, final Object aCallbackArgument, final boolean generateCallbacks,
+             final boolean disableCopyOnRead, final boolean preferCD, final ClientProxyMembershipID requestingClient,
+             final EntryEventImpl clientEvent, final boolean returnTombstones, final boolean opScopeIsLocal,
+             final boolean retainResult) throws TimeoutException, CacheLoaderException {
+    return get(key,  aCallbackArgument,  generateCallbacks, disableCopyOnRead,  preferCD,  requestingClient, clientEvent,  returnTombstones,  opScopeIsLocal, retainResult, null);
+  }
+
   /**
    * @param opScopeIsLocal if true then just check local storage for a value; if false then try to
    *        find the value if it is not local
    * @param retainResult if true then the result may be a retained off-heap reference.
    */
-  Object get(Object key, Object aCallbackArgument, boolean generateCallbacks,
-      boolean disableCopyOnRead, boolean preferCD, ClientProxyMembershipID requestingClient,
-      EntryEventImpl clientEvent, boolean returnTombstones, boolean opScopeIsLocal,
-      boolean retainResult) throws TimeoutException, CacheLoaderException {
+  Object get(final Object key, final Object aCallbackArgument, final boolean generateCallbacks,
+             final boolean disableCopyOnRead, final boolean preferCD, final ClientProxyMembershipID requestingClient,
+             final EntryEventImpl clientEvent, final boolean returnTombstones, final boolean opScopeIsLocal,
+             final boolean retainResult, KeyInfo keyInfo) throws TimeoutException, CacheLoaderException {
     assert !retainResult || preferCD;
     validateKey(key);
     checkReadiness();
@@ -1361,7 +1368,9 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
     long start = startGet();
     boolean isMiss = true;
     try {
-      KeyInfo keyInfo = getKeyInfo(key, aCallbackArgument);
+      if (null == keyInfo) {
+        keyInfo = getKeyInfo(key, aCallbackArgument);
+      }
       Object value = getDataView().getDeserializedValue(keyInfo, this, true, disableCopyOnRead,
           preferCD, clientEvent, returnTombstones, retainResult, true);
       final boolean isCreate = value == null;
