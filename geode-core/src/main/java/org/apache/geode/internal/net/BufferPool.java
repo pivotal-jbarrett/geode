@@ -21,6 +21,7 @@ import java.util.IdentityHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.logging.log4j.Logger;
+import sun.nio.ch.DirectBuffer;
 
 import org.apache.geode.InternalGemFireException;
 import org.apache.geode.annotations.VisibleForTesting;
@@ -332,33 +333,14 @@ public class BufferPool {
    */
   @VisibleForTesting
   public ByteBuffer getPoolableBuffer(ByteBuffer buffer) {
-    if (!buffer.isDirect()) {
-      return buffer;
-    }
-    ByteBuffer result = buffer;
-    if (parentOfSliceMethod == null) {
-      Class clazz = buffer.getClass();
-      try {
-        Method method = clazz.getMethod("attachment");
-        method.setAccessible(true);
-        parentOfSliceMethod = method;
-      } catch (Exception e) {
-        throw new InternalGemFireException("unable to retrieve underlying byte buffer", e);
-      }
-    }
-    try {
-      Object attachment = parentOfSliceMethod.invoke(buffer);
+    if (buffer instanceof DirectBuffer) {
+      final Object attachment = ((DirectBuffer) buffer).attachment();
       if (attachment instanceof ByteBuffer) {
-        result = (ByteBuffer) attachment;
-      } else if (attachment != null) {
-        throw new InternalGemFireException(
-            "direct byte buffer attachment was not a byte buffer but a " +
-                attachment.getClass().getName());
+        return (ByteBuffer) attachment;
       }
-    } catch (Exception e) {
-      throw new InternalGemFireException("unable to retrieve underlying byte buffer", e);
     }
-    return result;
+
+    return buffer;
   }
 
   /**
