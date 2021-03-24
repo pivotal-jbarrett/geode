@@ -37,6 +37,7 @@ import org.apache.geode.distributed.DistributedMember;
 import org.apache.geode.distributed.DistributedSystem;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
 import org.apache.geode.internal.HeapDataOutputStream;
+import org.apache.geode.internal.InternalDataSerializer;
 import org.apache.geode.internal.cache.event.DistributedEventTracker;
 import org.apache.geode.internal.cache.ha.HARegionQueue;
 import org.apache.geode.internal.cache.ha.ThreadIdentifier;
@@ -374,8 +375,7 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
     } else {
       DataSerializer.writeByteArray(this.membershipID, dop);
     }
-    DataSerializer.writeByteArray(getOptimizedByteArrayForEventID(this.threadID, this.sequenceID),
-        dop);
+    writeOptimizedByteArrayForEventID(threadID, sequenceID, dop);
     dop.writeInt(this.bucketID);
     dop.writeByte(this.breadcrumbCounter);
   }
@@ -657,6 +657,23 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
 
   }
 
+  public static void writeOptimizedByteArrayForEventID(final long threadId, final long sequenceId, final DataOutput out)
+      throws IOException {
+
+    final int threadIdLength = getByteSizeForValue(threadId);
+    final int threadIdIndex = (threadIdLength == 1) ? 0 : ((threadIdLength / 4) + 1);
+
+    final int sequenceIdLength = getByteSizeForValue(sequenceId);
+    final int sequenceIdIndex = (sequenceIdLength == 1) ? 0 : ((sequenceIdLength / 4) + 1);
+
+    final int byteBufferLength = 2 + threadIdLength + sequenceIdLength;
+
+    InternalDataSerializer.writeArrayLength(byteBufferLength, out);
+
+    fillerArray.get(threadIdIndex).fill(out, threadId);
+    fillerArray.get(sequenceIdIndex).fill(out, sequenceId);
+  }
+
   /**
    * Reads the optimized byte-array representation of an eventId and returns the long value of
    * threadId or sequenceId ( the first invocation of this method on bytebuffer returns the threadId
@@ -688,6 +705,8 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
      */
     public abstract void fill(ByteBuffer buffer, long id);
 
+    public abstract void fill(DataOutput out, long id) throws IOException;
+
     /**
      * Reads the given buffer and returns the value as long.
      *
@@ -714,6 +733,12 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
     public void fill(ByteBuffer buffer, long id) {
       buffer.put(EVENTID_BYTE);
       buffer.put((byte) id);
+    }
+
+    @Override
+    public void fill(final DataOutput out, final long id) throws IOException {
+      out.write(EVENTID_BYTE);
+      out.write((int) id);
     }
 
     /**
@@ -750,6 +775,12 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
       buffer.putShort((short) id);
     }
 
+    @Override
+    public void fill(final DataOutput out, final long id) throws IOException {
+      out.write(EVENTID_SHORT);
+      out.writeShort((int) id);
+    }
+
     /**
      * Reads the short value of id from the buffer and returns it as long.
      *
@@ -783,6 +814,12 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
       buffer.putInt((int) id);
     }
 
+    @Override
+    public void fill(final DataOutput out, final long id) throws IOException {
+      out.write(EVENTID_INT);
+      out.writeInt((int) id);
+    }
+
     /**
      * Reads the int value of id from the buffer and returns it as long.
      *
@@ -814,6 +851,12 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
     public void fill(ByteBuffer buffer, long id) {
       buffer.put(EVENTID_LONG);
       buffer.putLong(id);
+    }
+
+    @Override
+    public void fill(final DataOutput out, final long id) throws IOException {
+      out.write(EVENTID_LONG);
+      out.writeLong(id);
     }
 
     /**
