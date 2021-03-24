@@ -100,6 +100,10 @@ public class MemberIdentifierImpl implements MemberIdentifier, DataSerializableF
     return memberData.getInetAddress();
   }
 
+  public byte[] getInetAddressAsBytes() {
+    return memberData.getInetAddressAsBytes();
+  }
+
   /**
    * Return the underlying port (membership port)
    *
@@ -905,7 +909,7 @@ public class MemberIdentifierImpl implements MemberIdentifier, DataSerializableF
 
   public void writeEssentialData(DataOutput out) throws IOException {
     assert memberData.getVmKind() > 0;
-    StaticSerialization.writeInetAddress(getInetAddress(), out);
+    StaticSerialization.writeByteArray(getInetAddressAsBytes(), out);
     out.writeInt(getMembershipPort());
 
     int flags = 0;
