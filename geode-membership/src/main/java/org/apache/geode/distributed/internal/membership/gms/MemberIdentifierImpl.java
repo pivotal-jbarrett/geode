@@ -927,7 +927,7 @@ public class MemberIdentifierImpl implements MemberIdentifier, DataSerializableF
     if (vmKind == MemberIdentifier.LONER_DM_TYPE) {
       StaticSerialization.writeString(memberData.getUniqueTag(), out);
     } else { // added in 6.5 for unique identifiers in P2P
-      StaticSerialization.writeString(String.valueOf(memberData.getVmViewId()), out);
+      StaticSerialization.writeString(memberData.getVmViewIdAsString(), out);
     }
     // write name last to fix bug 45160
     StaticSerialization.writeString(memberData.getName(), out);
