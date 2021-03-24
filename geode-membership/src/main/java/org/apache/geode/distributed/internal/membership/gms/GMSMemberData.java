@@ -69,6 +69,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
   private int processId;
   private byte vmKind;
   private int vmViewId = -1;
+  private String vmViewIdAsString;
   private int directPort;
   private String name;
   private String[] groups;
@@ -130,6 +131,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
     this.vmKind = vmKind;
     this.directPort = directPort;
     this.vmViewId = vmViewId;
+    this.vmViewIdAsString = String.valueOf(vmViewId);
     this.name = name;
     this.groups = groups;
     this.durableId = durableId;
@@ -153,6 +155,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
     this.uuidMSBs = msbs;
     this.uuidLSBs = lsbs;
     this.vmViewId = viewId;
+    this.vmViewIdAsString = String.valueOf(vmViewId);
     this.vmKind = MemberIdentifier.NORMAL_DM_TYPE;
     this.preferredForCoordinator = true;
   }
@@ -173,6 +176,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
     this.processId = other.processId;
     this.vmKind = other.vmKind;
     this.vmViewId = other.vmViewId;
+    this.vmViewIdAsString = other.vmViewIdAsString;
     this.directPort = other.directPort;
     this.name = other.name;
     this.durableId = other.durableId;
@@ -443,10 +447,15 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
     return vmViewId;
   }
 
+  @Override
+  public String getVmViewIdAsString() {
+    return vmViewIdAsString;
+  }
 
   @Override
   public void setVmViewId(int id) {
     this.vmViewId = id;
+    this.vmViewIdAsString = String.valueOf(vmViewId);
   }
 
 
@@ -592,6 +601,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
     }
     this.udpPort = in.readInt();
     this.vmViewId = in.readInt();
+    this.vmViewIdAsString = String.valueOf(vmViewId);
     this.uuidMSBs = in.readLong();
     this.uuidLSBs = in.readLong();
     if (context.getSerializationVersion().ordinal() >= KnownVersion.GEODE_1_2_0.ordinal()) {
