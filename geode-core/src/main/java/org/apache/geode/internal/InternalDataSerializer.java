@@ -1826,6 +1826,22 @@ public abstract class InternalDataSerializer extends DataSerializer {
     }
   }
 
+  public static void skipSetOfLongs(final DataInput in) throws IOException {
+    final int size = in.readInt();
+    if (size > 0) {
+      final boolean longIDs = in.readBoolean();
+      if (longIDs)  {
+        for (int i = 0; i < size; i++) {
+          in.readLong();
+        }
+      } else {
+        for (int i = 0; i < size; i++) {
+          in.readInt();
+        }
+      }
+    }
+  }
+
   /**
    * Reads a {@code TimeUnit} from a {@code DataInput}.
    *

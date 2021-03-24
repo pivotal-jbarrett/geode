@@ -380,36 +380,34 @@ public class FilterRoutingInfo implements VersionedDataSerializable {
     /** DataSerializable methods */
     @Override
     public void fromData(DataInput in) throws IOException, ClassNotFoundException {
-      this.myData = DataSerializer.readByteArray(in);
+//      final boolean hasCQs = in.readBoolean();
+//      if (hasCQs) {
+//        final int numEntries = InternalDataSerializer.readArrayLength(in);
+//        for (int i = 0; i < numEntries; i++) {
+//          InternalDataSerializer.readUnsignedVL(in);
+//          InternalDataSerializer.readUnsignedVL(in);
+//        }
+//      }
+//      InternalDataSerializer.skipSetOfLongs(in);
+//      InternalDataSerializer.skipSetOfLongs(in);
     }
 
     @Override
     public void toData(DataOutput out) throws IOException {
-      HeapDataOutputStream hdos;
-      int size = 9;
-      size += interestedClients == null ? 4 : interestedClients.size() * 8 + 5;
-      size += interestedClientsInv == null ? 4 : interestedClientsInv.size() * 8 + 5;
-      size += cqs == null ? 0 : cqs.size() * 12;
-      byte[] myData = StaticSerialization.getThreadLocalByteArray(size);
-      hdos = new HeapDataOutputStream(myData);
-      hdos.disallowExpansion();
-      if (this.cqs == null) {
-        hdos.writeBoolean(false);
-      } else {
-        hdos.writeBoolean(true);
-        InternalDataSerializer.writeArrayLength(cqs.size(), hdos);
-        for (Iterator it = this.cqs.entrySet().iterator(); it.hasNext();) {
-          Map.Entry e = (Map.Entry) it.next();
-          // most cq IDs and all event types are small ints, so we use an optimized
-          // write that serializes 7 bits at a time in a compact form
-          InternalDataSerializer.writeUnsignedVL((Long) e.getKey(), hdos);
-          InternalDataSerializer.writeUnsignedVL((Integer) e.getValue(), hdos);
-        }
-      }
-      InternalDataSerializer.writeSetOfLongs(this.interestedClients, this.longIDs, hdos);
-      InternalDataSerializer.writeSetOfLongs(this.interestedClientsInv, this.longIDs, hdos);
-      hdos.finishWriting();
-      DataSerializer.writeByteArray(myData, hdos.size(), out);
+//      if (this.cqs == null) {
+//        out.writeBoolean(false);
+//      } else {
+//        out.writeBoolean(true);
+//        InternalDataSerializer.writeArrayLength(cqs.size(), out);
+//        for (final Map.Entry<Long, Integer> longIntegerEntry : this.cqs.entrySet()) {
+//          // most cq IDs and all event types are small ints, so we use an optimized
+//          // write that serializes 7 bits at a time in a compact form
+//          InternalDataSerializer.writeUnsignedVL(longIntegerEntry.getKey(), out);
+//          InternalDataSerializer.writeUnsignedVL(longIntegerEntry.getValue(), out);
+//        }
+//      }
+//      InternalDataSerializer.writeSetOfLongs(this.interestedClients, this.longIDs, out);
+//      InternalDataSerializer.writeSetOfLongs(this.interestedClientsInv, this.longIDs, out);
     }
 
     public void fromDataPre_GFE_8_0_0_0(DataInput in) throws IOException, ClassNotFoundException {
