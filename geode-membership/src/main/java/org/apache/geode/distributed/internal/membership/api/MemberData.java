@@ -69,6 +69,8 @@ public interface MemberData {
 
   int getVmViewId();
 
+  String getVmViewIdAsString();
+
   void setVmViewId(int id);
 
   int getDirectChannelPort();
