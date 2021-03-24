@@ -66,6 +66,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
   private boolean networkPartitionDetectionEnabled;
   private byte memberWeight;
   private InetAddress inetAddr;
+  private byte[] inetAddrAsBytes;
   private int processId;
   private byte vmKind;
   private int vmViewId = -1;
@@ -125,6 +126,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
       short versionOrdinal,
       long msbs, long lsbs, byte memberWeight, boolean isPartial, String uniqueTag) {
     this.inetAddr = i;
+    this.inetAddrAsBytes = i.getAddress();
     this.hostName = hostName;
     this.udpPort = membershipPort;
     this.processId = processId;
@@ -149,6 +151,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
   public GMSMemberData(InetAddress i, int p, short versionOrdinal, long msbs, long lsbs,
       int viewId) {
     this.inetAddr = i;
+    this.inetAddrAsBytes = i.getAddress();
     this.hostName = i.getHostName();
     this.udpPort = p;
     this.version = Versioning.getVersion(versionOrdinal);
@@ -173,6 +176,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
     this.networkPartitionDetectionEnabled = other.networkPartitionDetectionEnabled;
     this.memberWeight = other.memberWeight;
     this.inetAddr = other.inetAddr;
+    this.inetAddrAsBytes = other.inetAddrAsBytes;
     this.processId = other.processId;
     this.vmKind = other.vmKind;
     this.vmViewId = other.vmViewId;
@@ -221,6 +225,11 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
   @Override
   public InetAddress getInetAddress() {
     return this.inetAddr;
+  }
+
+  @Override
+  public byte[] getInetAddressAsBytes() {
+    return inetAddrAsBytes;
   }
 
   @Override
@@ -495,6 +504,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
   @Override
   public void setInetAddr(InetAddress inetAddr) {
     this.inetAddr = inetAddr;
+    this.inetAddrAsBytes = inetAddr.getAddress();
   }
 
 
@@ -598,6 +608,7 @@ public class GMSMemberData implements MemberData, Comparable<GMSMemberData> {
       // use address as hostname at this level. getHostName() will do a reverse-dns lookup,
       // which is very expensive
       this.hostName = inetAddr.getHostAddress();
+      this.inetAddrAsBytes = inetAddr.getAddress();
     }
     this.udpPort = in.readInt();
     this.vmViewId = in.readInt();

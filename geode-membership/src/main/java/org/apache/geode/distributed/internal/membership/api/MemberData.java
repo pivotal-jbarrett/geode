@@ -43,6 +43,8 @@ public interface MemberData {
 
   InetAddress getInetAddress();
 
+  byte[] getInetAddressAsBytes();
+
   short getVersionOrdinal();
 
   Version getVersion();
