@@ -331,10 +331,15 @@ public abstract class DistributedCacheOperation {
   protected void _distribute() {
     testHookSlowDistributions();
 
-    final DistributedRegion region = getRegion();
+    final boolean debugEnabled = logger.isDebugEnabled();
 
     try {
-      final Set<InternalDistributedMember> unmodifiableRecipients = getRecipients();
+      final DistributedRegion region = getRegion();
+      final CacheDistributionAdvisor cacheDistributionAdvisor = region.getCacheDistributionAdvisor();
+
+      final Set<InternalDistributedMember> unmodifiableRecipients = cacheDistributionAdvisor.adviseCacheOp();
+      originalRecipients = unmodifiableRecipients;
+
       final Map<InternalDistributedMember, PersistentMemberID> persistentIds =
           region.getDataPolicy().withPersistence() ? region.getDistributionAdvisor().adviseInitializedPersistentMembers() : null;
       final BucketRegion bucketRegion = region.isUsedForPartitionedRegionBucket() ? (BucketRegion) region : null;
@@ -346,10 +351,8 @@ public abstract class DistributedCacheOperation {
       if (null != bucketRegion) {
         twoMessages = bucketRegion.getBucketAdvisor().adviseRequiresTwoMessages();
         filterRouting = getRecipientFilterRouting(unmodifiableRecipients);
-        if (filterRouting != null) {
-          if (logger.isDebugEnabled()) {
-            logger.debug("Computed this filter routing: {}", filterRouting);
-          }
+        if (filterRouting != null && debugEnabled) {
+          logger.debug("Computed this filter routing: {}", filterRouting);
         }
       } else {
         twoMessages = emptySet();
@@ -359,7 +362,6 @@ public abstract class DistributedCacheOperation {
       final Set<InternalDistributedMember> adjunctRecipients = getAdjunctRecipients(bucketRegion, unmodifiableRecipients,
               filterRouting, twoMessages);
 
-      final CacheDistributionAdvisor cacheDistributionAdvisor = region.getCacheDistributionAdvisor();
       final EntryEventImpl entryEvent = event.getOperation().isEntry() ? getEvent() : null;
 
       final Set<InternalDistributedMember> needsOldValueInCacheOp = getNeedsOldValueInCacheOp(cacheDistributionAdvisor, unmodifiableRecipients, entryEvent);
@@ -390,7 +392,7 @@ public abstract class DistributedCacheOperation {
       }
 
     } catch (CancelException e) {
-      if (logger.isDebugEnabled()) {
+      if (debugEnabled) {
         logger.debug("distribution of message aborted by shutdown: {}", this);
       }
       throw e;
