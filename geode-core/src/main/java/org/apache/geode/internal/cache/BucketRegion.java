@@ -30,6 +30,7 @@ import java.util.concurrent.locks.Lock;
 
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.SleepingWaitStrategy;
+import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import com.lmax.disruptor.util.DaemonThreadFactory;
@@ -685,7 +686,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       static {
         disruptor =
             new Disruptor<>(BasicPutPart2Event::new, 1024, DaemonThreadFactory.INSTANCE,
-                ProducerType.SINGLE, new SleepingWaitStrategy());
+                ProducerType.SINGLE, new YieldingWaitStrategy());
         disruptor.handleEventsWith((basicPutPart2, sequence, endOfBatch) -> {
 //          basicPutPart2.bucketRegion.basicPutPart2Sync(basicPutPart2.entryEvent,
 //              basicPutPart2.regionEntry, basicPutPart2.isInitialized, basicPutPart2.lastModified,
