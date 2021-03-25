@@ -170,7 +170,7 @@ public abstract class DistributedCacheOperation {
 
   protected Set departedMembers;
 
-  protected Set originalRecipients;
+  protected Set<InternalDistributedMember> originalRecipients;
 
   @MutableForTesting
   static Runnable internalBeforePutOutgoing;
@@ -328,48 +328,36 @@ public abstract class DistributedCacheOperation {
    * block.
    */
   protected void _distribute() {
-    DistributedRegion region = getRegion();
-    DistributionManager mgr = region.getDistributionManager();
-    boolean reliableOp = isOperationReliable() && region.requiresReliabilityCheck();
+    testHookSlowDistributions();
 
-    if (SLOW_DISTRIBUTION_MS > 0) { // test hook
-      try {
-        Thread.sleep(SLOW_DISTRIBUTION_MS);
-      } catch (InterruptedException ignore) {
-        Thread.currentThread().interrupt();
-      }
-      SLOW_DISTRIBUTION_MS = 0;
-    }
-
-    boolean isPutAll = (this instanceof DistributedPutAllOperation);
-    boolean isRemoveAll = (this instanceof DistributedRemoveAllOperation);
+    final DistributedRegion region = getRegion();
 
     try {
       // Recipients with CacheOp
-      Set<InternalDistributedMember> recipients = new HashSet<>(getRecipients());
-      Map<InternalDistributedMember, PersistentMemberID> persistentIds = null;
-      if (region.getDataPolicy().withPersistence()) {
-        persistentIds = region.getDistributionAdvisor().adviseInitializedPersistentMembers();
-      }
-
-      // some members requiring old value are also in the cache op recipients set
-      Set needsOldValueInCacheOp = Collections.emptySet();
+      final Set<InternalDistributedMember> unmodifiableRecipients = getRecipients();
+      final Map<InternalDistributedMember, PersistentMemberID> persistentIds =
+          region.getDataPolicy().withPersistence() ? region.getDistributionAdvisor().adviseInitializedPersistentMembers() : null;
 
       // set client routing information into the event
-      boolean routingComputed = false;
-      FilterRoutingInfo filterRouting = null;
+      final FilterRoutingInfo filterRouting;
       // recipients that will get a cacheop msg and also a PR message
-      Set twoMessages = Collections.emptySet();
+      final Set<InternalDistributedMember> twoMessages;
       if (region.isUsedForPartitionedRegionBucket()) {
         twoMessages = ((Bucket) region).getBucketAdvisor().adviseRequiresTwoMessages();
-        routingComputed = true;
-        filterRouting = getRecipientFilterRouting(recipients);
+        filterRouting = getRecipientFilterRouting(unmodifiableRecipients);
         if (filterRouting != null) {
           if (logger.isDebugEnabled()) {
             logger.debug("Computed this filter routing: {}", filterRouting);
           }
         }
+      } else {
+        twoMessages = Collections.emptySet();
+        filterRouting = null;
       }
+
+      // --- HERE ---
+
+      Set<InternalDistributedMember> recipients = new HashSet<>(unmodifiableRecipients);
 
       // some members need PR notification of the change for client/wan
       // notification
@@ -384,6 +372,9 @@ public abstract class DistributedCacheOperation {
       }
 
       EntryEventImpl entryEvent = event.getOperation().isEntry() ? getEvent() : null;
+
+      // some members requiring old value are also in the cache op recipients set
+      Set needsOldValueInCacheOp = Collections.emptySet();
 
       if (entryEvent != null && entryEvent.hasOldValue()) {
         if (testSendingOldValues) {
@@ -418,6 +409,9 @@ public abstract class DistributedCacheOperation {
           cachelessNodesWithNoCacheServer.removeAll(adviseCacheServers);
         }
       }
+
+      final DistributionManager mgr = region.getDistributionManager();
+      final boolean reliableOp = isOperationReliable() && region.requiresReliabilityCheck();
 
       if (recipients.isEmpty() && adjunctRecipients.isEmpty() && needsOldValueInCacheOp.isEmpty()
           && cachelessNodes.isEmpty()) {
@@ -546,6 +540,9 @@ public abstract class DistributedCacheOperation {
           }
         }
 
+        final boolean isPutAll = (this instanceof DistributedPutAllOperation);
+        final boolean isRemoveAll = (this instanceof DistributedRemoveAllOperation);
+
         msg.setMulticast(useMulticast);
         msg.directAck = directAck;
         if (region.isUsedForPartitionedRegionBucket()) {
@@ -556,7 +553,7 @@ public abstract class DistributedCacheOperation {
             }
             msg.filterRouting = filterRouting;
           }
-        } else if (!routingComputed) {
+        } else if (null == filterRouting) {
           msg.needsRouting = true;
         }
 
@@ -708,6 +705,20 @@ public abstract class DistributedCacheOperation {
   }
 
   /**
+   * Test hook
+   */
+  private void testHookSlowDistributions() {
+    if (SLOW_DISTRIBUTION_MS > 0) {
+      try {
+        Thread.sleep(SLOW_DISTRIBUTION_MS);
+      } catch (InterruptedException ignore) {
+        Thread.currentThread().interrupt();
+      }
+      SLOW_DISTRIBUTION_MS = 0;
+    }
+  }
+
+  /**
    * Cleanup destroyed events in CQ result cache for remote CQs. While maintaining the CQ results
    * key caching. the destroy event keys are marked as destroyed instead of removing them, this is
    * to take care, arrival of duplicate events. The key marked as destroyed are removed after the
@@ -829,7 +840,7 @@ public abstract class DistributedCacheOperation {
     return (EntryEventImpl) this.event;
   }
 
-  protected Set getRecipients() {
+  protected Set<InternalDistributedMember> getRecipients() {
     CacheDistributionAdvisor advisor = getRegion().getCacheDistributionAdvisor();
     this.originalRecipients = advisor.adviseCacheOp();
     return this.originalRecipients;
