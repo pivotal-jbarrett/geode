@@ -687,9 +687,9 @@ public class BucketRegion extends DistributedRegion implements Bucket {
             new Disruptor<>(BasicPutPart2Event::new, 1024, DaemonThreadFactory.INSTANCE,
                 ProducerType.MULTI, new SleepingWaitStrategy());
         disruptor.handleEventsWith((basicPutPart2, sequence, endOfBatch) -> {
-          basicPutPart2.bucketRegion.basicPutPart2Sync(basicPutPart2.entryEvent,
-              basicPutPart2.regionEntry, basicPutPart2.isInitialized, basicPutPart2.lastModified,
-              basicPutPart2.clearConflict);
+//          basicPutPart2.bucketRegion.basicPutPart2Sync(basicPutPart2.entryEvent,
+//              basicPutPart2.regionEntry, basicPutPart2.isInitialized, basicPutPart2.lastModified,
+//              basicPutPart2.clearConflict);
         });
         disruptor.start();
       }
@@ -699,15 +699,15 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       long lastModified, boolean clearConflict) {
     final long modifiedTime = event.getEventTime(lastModified);
 
-//    final RingBuffer<BasicPutPart2Event> ringBuffer = disruptor.getRingBuffer();
-//    ringBuffer.publishEvent((basicPutPart2, sequence) -> {
-//      basicPutPart2.bucketRegion = this;
-//      basicPutPart2.entryEvent = event;
-//      basicPutPart2.regionEntry = entry;
-//      basicPutPart2.isInitialized = isInitialized;
-//      basicPutPart2.lastModified = lastModified;
-//      basicPutPart2.clearConflict = clearConflict;
-//    });
+    final RingBuffer<BasicPutPart2Event> ringBuffer = disruptor.getRingBuffer();
+    ringBuffer.publishEvent((basicPutPart2, sequence) -> {
+      basicPutPart2.bucketRegion = this;
+      basicPutPart2.entryEvent = event;
+      basicPutPart2.regionEntry = entry;
+      basicPutPart2.isInitialized = isInitialized;
+      basicPutPart2.lastModified = lastModified;
+      basicPutPart2.clearConflict = clearConflict;
+    });
 
     return modifiedTime;
   }
