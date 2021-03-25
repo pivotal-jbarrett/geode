@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.Vector;
 
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 
 import org.apache.geode.CancelException;
 import org.apache.geode.DataSerializer;
@@ -356,10 +357,8 @@ public abstract class DistributedCacheOperation {
         filterRouting = null;
       }
 
-
       final Set<InternalDistributedMember> adjunctRecipients = getAdjunctRecipients(bucketRegion, unmodifiableRecipients,
               filterRouting, twoMessages);
-
 
       final CacheDistributionAdvisor cacheDistributionAdvisor = region.getCacheDistributionAdvisor();
       final EntryEventImpl entryEvent = event.getOperation().isEntry() ? getEvent() : null;
@@ -373,30 +372,11 @@ public abstract class DistributedCacheOperation {
 
       // --- HERE ---
 
-      final Set<InternalDistributedMember> cachelessNodes;
-      Set<InternalDistributedMember> cachelessNodesWithNoCacheServer = emptySet();
-      if (region.getDistributionConfig().getDeltaPropagation() && this.supportsDeltaPropagation()) {
-        cachelessNodes = cacheDistributionAdvisor.adviseEmptys();
-        if (!cachelessNodes.isEmpty()) {
-          List<InternalDistributedMember> list = new ArrayList<>(cachelessNodes);
-          for (Object member : cachelessNodes) {
-            if (!modifiableRecipients.contains(member) || adjunctRecipients.contains(member)) {
-              // Don't include those originally excluded.
-              list.remove(member);
-            }
-          }
-          cachelessNodes.clear();
-          modifiableRecipients.removeAll(list);
-          cachelessNodes.addAll(list);
-        }
-        if (!cachelessNodes.isEmpty()) {
-          cachelessNodesWithNoCacheServer = new HashSet<>(cachelessNodes);
-          final Set<InternalDistributedMember> adviseCacheServers = cacheDistributionAdvisor.adviseCacheServers();
-          cachelessNodesWithNoCacheServer.removeAll(adviseCacheServers);
-        }
-      } else {
-        cachelessNodes = emptySet();
-      }
+      final Set<InternalDistributedMember> cachelessNodes = getCachelessNodes(region, cacheDistributionAdvisor);
+
+      adjustRecipientsAndCachelessNodes(adjunctRecipients, modifiableRecipients, cachelessNodes);
+
+      final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer = getCachelessNodesWithNoCacheServer(cacheDistributionAdvisor, cachelessNodes);
 
       final DistributionManager mgr = region.getDistributionManager();
       final boolean reliableOp = isOperationReliable() && region.requiresReliabilityCheck();
@@ -693,6 +673,51 @@ public abstract class DistributedCacheOperation {
     } finally {
       ReplyProcessor21.setShortSevereAlertProcessing(false);
     }
+  }
+
+  private void adjustRecipientsAndCachelessNodes(final Set<InternalDistributedMember> adjunctRecipients,
+                         final Set<InternalDistributedMember> modifiableRecipients,
+                         final Set<InternalDistributedMember> cachelessNodes) {
+    if (!cachelessNodes.isEmpty()) {
+      // TODO optimize removal of nodes.
+      final List<InternalDistributedMember> list = new ArrayList<>(cachelessNodes);
+      for (InternalDistributedMember member : cachelessNodes) {
+        if (!modifiableRecipients.contains(member) || adjunctRecipients.contains(member)) {
+          // Don't include those originally excluded.
+          list.remove(member);
+        }
+      }
+      cachelessNodes.clear();
+      modifiableRecipients.removeAll(list);
+      cachelessNodes.addAll(list);
+    }
+  }
+
+  private Set<InternalDistributedMember> getCachelessNodes(
+      final DistributedRegion region, final CacheDistributionAdvisor cacheDistributionAdvisor) {
+    final Set<InternalDistributedMember> cachelessNodes;
+    if (region.getDistributionConfig().getDeltaPropagation() && this.supportsDeltaPropagation()) {
+      cachelessNodes = cacheDistributionAdvisor.adviseEmptys();
+    } else {
+      cachelessNodes = emptySet();
+    }
+    return cachelessNodes;
+  }
+
+  @NotNull
+  private Set<InternalDistributedMember> getCachelessNodesWithNoCacheServer(
+      final CacheDistributionAdvisor cacheDistributionAdvisor,
+      final Set<InternalDistributedMember> cachelessNodes) {
+    final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer;
+    if (cachelessNodes.isEmpty()) {
+      return emptySet();
+    }
+
+    // TODO jabarrett - optimize adding of nodes
+    cachelessNodesWithNoCacheServer = new HashSet<>(cachelessNodes);
+    final Set<InternalDistributedMember> adviseCacheServers = cacheDistributionAdvisor.adviseCacheServers();
+    cachelessNodesWithNoCacheServer.removeAll(adviseCacheServers);
+    return cachelessNodesWithNoCacheServer;
   }
 
   /**
