@@ -1031,7 +1031,7 @@ public class CacheDistributionAdvisor extends DistributionAdvisor {
    * @return the set of replicate's memberIds
    * @since GemFire 5.8
    */
-  Set adviseEmptys() {
+  Set<InternalDistributedMember> adviseEmptys() {
     return adviseFilter(profile -> {
       assert profile instanceof CacheProfile;
       CacheProfile cp = (CacheProfile) profile;
@@ -1085,7 +1085,7 @@ public class CacheDistributionAdvisor extends DistributionAdvisor {
     return result;
   }
 
-  Set adviseCacheServers() {
+  Set<InternalDistributedMember> adviseCacheServers() {
     getAdvisee().getCancelCriterion().checkCancelInProgress(null);
     return adviseFilter(profile -> {
       assert profile instanceof CacheProfile;
