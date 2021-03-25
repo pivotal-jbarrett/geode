@@ -451,7 +451,7 @@ public class CacheDistributionAdvisor extends DistributionAdvisor {
    *
    * @since GemFire 5.5
    */
-  Set adviseRequiresOldValueInCacheOp() {
+  Set<InternalDistributedMember> adviseRequiresOldValueInCacheOp() {
     return adviseFilter(profile -> {
       assert profile instanceof CacheProfile;
       CacheProfile cp = (CacheProfile) profile;
