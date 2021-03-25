@@ -366,18 +366,19 @@ public abstract class DistributedCacheOperation {
 
       final Set<InternalDistributedMember> needsOldValueInCacheOp = getNeedsOldValueInCacheOp(cacheDistributionAdvisor, unmodifiableRecipients, entryEvent);
 
-      // --- HERE ---
+      // TODO jabarrett - cleanup copy and remove.
 
       Set<InternalDistributedMember> modifiableRecipients = new HashSet<>(unmodifiableRecipients);
       modifiableRecipients.removeAll(needsOldValueInCacheOp);
 
-      Set cachelessNodes = emptySet();
-      Set adviseCacheServers;
+      // --- HERE ---
+
+      final Set<InternalDistributedMember> cachelessNodes;
       Set<InternalDistributedMember> cachelessNodesWithNoCacheServer = emptySet();
       if (region.getDistributionConfig().getDeltaPropagation() && this.supportsDeltaPropagation()) {
         cachelessNodes = cacheDistributionAdvisor.adviseEmptys();
         if (!cachelessNodes.isEmpty()) {
-          List list = new ArrayList(cachelessNodes);
+          List<InternalDistributedMember> list = new ArrayList<>(cachelessNodes);
           for (Object member : cachelessNodes) {
             if (!modifiableRecipients.contains(member) || adjunctRecipients.contains(member)) {
               // Don't include those originally excluded.
@@ -390,9 +391,11 @@ public abstract class DistributedCacheOperation {
         }
         if (!cachelessNodes.isEmpty()) {
           cachelessNodesWithNoCacheServer = new HashSet<>(cachelessNodes);
-          adviseCacheServers = cacheDistributionAdvisor.adviseCacheServers();
+          final Set<InternalDistributedMember> adviseCacheServers = cacheDistributionAdvisor.adviseCacheServers();
           cachelessNodesWithNoCacheServer.removeAll(adviseCacheServers);
         }
+      } else {
+        cachelessNodes = emptySet();
       }
 
       final DistributionManager mgr = region.getDistributionManager();
@@ -621,11 +624,14 @@ public abstract class DistributedCacheOperation {
               modifiableRecipients.addAll(cachelessNodes);
             }
           }
-          adjunctRecipientsWithNoCacheServer = new HashSet<>(adjunctRecipients);
-          adviseCacheServers = ((Bucket) region).getPartitionedRegion()
-              .getCacheDistributionAdvisor().adviseCacheServers();
-          adjunctRecipientsWithNoCacheServer.removeAll(adviseCacheServers);
-
+          {
+            adjunctRecipientsWithNoCacheServer = new HashSet<>(adjunctRecipients);
+            final Set<InternalDistributedMember>
+                adviseCacheServers =
+                ((Bucket) region).getPartitionedRegion().getCacheDistributionAdvisor()
+                    .adviseCacheServers();
+            adjunctRecipientsWithNoCacheServer.removeAll(adviseCacheServers);
+          }
           if (isPutAll) {
             bucketRegion.performPutAllAdjunctMessaging((DistributedPutAllOperation) this,
                 modifiableRecipients, adjunctRecipients, filterRouting, this.processor);
