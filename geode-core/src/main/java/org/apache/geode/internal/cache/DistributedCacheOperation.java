@@ -1393,12 +1393,12 @@ public abstract class DistributedCacheOperation {
         }
         this.oldValue = DataSerializer.readByteArray(in);
       }
-      boolean hasFilterInfo = (bits & FILTER_INFO_MASK) != 0;
-      this.needsRouting = (bits & NEEDS_ROUTING_MASK) != 0;
-      if (hasFilterInfo) {
-        this.filterRouting = new FilterRoutingInfo();
-        InternalDataSerializer.invokeFromData(this.filterRouting, in);
-      }
+//      boolean hasFilterInfo = (bits & FILTER_INFO_MASK) != 0;
+//      this.needsRouting = (bits & NEEDS_ROUTING_MASK) != 0;
+//      if (hasFilterInfo) {
+//        this.filterRouting = new FilterRoutingInfo();
+//        InternalDataSerializer.invokeFromData(this.filterRouting, in);
+//      }
       if ((bits & VERSION_TAG_MASK) != 0) {
         boolean persistentTag = (bits & PERSISTENT_TAG_MASK) != 0;
         this.versionTag = VersionTag.create(persistentTag, in);
@@ -1442,9 +1442,9 @@ public abstract class DistributedCacheOperation {
         }
         writeValue(policy, vObj, vBytes, out);
       }
-      if (this.filterRouting != null) {
-        InternalDataSerializer.invokeToData(this.filterRouting, out);
-      }
+//      if (this.filterRouting != null) {
+//        InternalDataSerializer.invokeToData(this.filterRouting, out);
+//      }
       if (this.versionTag != null) {
         InternalDataSerializer.invokeToData(this.versionTag, out);
       }
