@@ -687,7 +687,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       static {
         disruptor =
             new Disruptor<>(BasicPutPart2Event::new, 1024, DaemonThreadFactory.INSTANCE,
-                ProducerType.SINGLE, new SleepingWaitStrategy());
+                ProducerType.SINGLE, new YieldingWaitStrategy());
         disruptor.handleEventsWith((basicPutPart2, sequence, endOfBatch) -> {
 //          basicPutPart2.bucketRegion.basicPutPart2Sync(basicPutPart2.entryEvent,
 //              basicPutPart2.regionEntry, basicPutPart2.isInitialized, basicPutPart2.lastModified,
