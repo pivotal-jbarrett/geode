@@ -337,14 +337,14 @@ public abstract class DistributedCacheOperation {
       final Set<InternalDistributedMember> unmodifiableRecipients = getRecipients();
       final Map<InternalDistributedMember, PersistentMemberID> persistentIds =
           region.getDataPolicy().withPersistence() ? region.getDistributionAdvisor().adviseInitializedPersistentMembers() : null;
-      final boolean usedForPartitionedRegionBucket = region.isUsedForPartitionedRegionBucket();
+      final BucketRegion bucketRegion = region.isUsedForPartitionedRegionBucket() ? (BucketRegion) region : null;
 
       // set client routing information into the event
       final FilterRoutingInfo filterRouting;
       // recipients that will get a cacheop msg and also a PR message
       final Set<InternalDistributedMember> twoMessages;
-      if (usedForPartitionedRegionBucket) {
-        twoMessages = ((Bucket) region).getBucketAdvisor().adviseRequiresTwoMessages();
+      if (null != bucketRegion) {
+        twoMessages = bucketRegion.getBucketAdvisor().adviseRequiresTwoMessages();
         filterRouting = getRecipientFilterRouting(unmodifiableRecipients);
         if (filterRouting != null) {
           if (logger.isDebugEnabled()) {
@@ -357,7 +357,7 @@ public abstract class DistributedCacheOperation {
       }
 
 
-      final Set<InternalDistributedMember> adjunctRecipients = getAdjunctRecipients(region, unmodifiableRecipients, usedForPartitionedRegionBucket,
+      final Set<InternalDistributedMember> adjunctRecipients = getAdjunctRecipients(bucketRegion, unmodifiableRecipients,
               filterRouting, twoMessages);
 
 
@@ -422,7 +422,7 @@ public abstract class DistributedCacheOperation {
         }
 
         // compute local client routing before waiting for an ack only for a bucket
-        if (usedForPartitionedRegionBucket) {
+        if (null != bucketRegion) {
           FilterInfo filterInfo = getLocalFilterRouting(filterRouting);
           this.event.setLocalFilterInfo(filterInfo);
         }
@@ -530,7 +530,7 @@ public abstract class DistributedCacheOperation {
 
         msg.setMulticast(useMulticast);
         msg.directAck = directAck;
-        if (usedForPartitionedRegionBucket) {
+        if (null != bucketRegion) {
           if (!isPutAll && !isRemoveAll && filterRouting != null
               && filterRouting.hasMemberWithFilterInfo()) {
             if (logger.isDebugEnabled()) {
@@ -627,10 +627,10 @@ public abstract class DistributedCacheOperation {
           adjunctRecipientsWithNoCacheServer.removeAll(adviseCacheServers);
 
           if (isPutAll) {
-            ((BucketRegion) region).performPutAllAdjunctMessaging((DistributedPutAllOperation) this,
+            bucketRegion.performPutAllAdjunctMessaging((DistributedPutAllOperation) this,
                 modifiableRecipients, adjunctRecipients, filterRouting, this.processor);
           } else if (isRemoveAll) {
-            ((BucketRegion) region).performRemoveAllAdjunctMessaging(
+            bucketRegion.performRemoveAllAdjunctMessaging(
                 (DistributedRemoveAllOperation) this, modifiableRecipients, adjunctRecipients, filterRouting,
                 this.processor);
           } else {
@@ -638,11 +638,11 @@ public abstract class DistributedCacheOperation {
                 adjunctRecipientsWithNoCacheServer.size() < adjunctRecipients.size();
             adjunctRecipients.removeAll(adjunctRecipientsWithNoCacheServer);
             if (!adjunctRecipients.isEmpty()) {
-              ((BucketRegion) region).performAdjunctMessaging(getEvent(), modifiableRecipients,
+              bucketRegion.performAdjunctMessaging(getEvent(), modifiableRecipients,
                   adjunctRecipients, filterRouting, this.processor, calculateDelta, true);
             }
             if (!adjunctRecipientsWithNoCacheServer.isEmpty()) {
-              ((BucketRegion) region).performAdjunctMessaging(getEvent(), modifiableRecipients,
+              bucketRegion.performAdjunctMessaging(getEvent(), modifiableRecipients,
                   adjunctRecipientsWithNoCacheServer, filterRouting, this.processor, calculateDelta,
                   false);
             }
@@ -650,7 +650,7 @@ public abstract class DistributedCacheOperation {
         }
 
         // compute local client routing before waiting for an ack only for a bucket
-        if (usedForPartitionedRegionBucket) {
+        if (null != bucketRegion) {
           FilterInfo filterInfo = getLocalFilterRouting(filterRouting);
           event.setLocalFilterInfo(filterInfo);
         }
@@ -671,7 +671,7 @@ public abstract class DistributedCacheOperation {
         }
       }
 
-      if (usedForPartitionedRegionBucket && filterRouting != null) {
+      if (filterRouting != null) {
         removeDestroyTokensFromCqResultKeys(filterRouting);
       }
 
@@ -714,14 +714,12 @@ public abstract class DistributedCacheOperation {
    * operation's replyprocessor and need to be sent at the same time as
    * the operation's message
    */
-  private Set<InternalDistributedMember> getAdjunctRecipients(final DistributedRegion region,
+  private Set<InternalDistributedMember> getAdjunctRecipients(final BucketRegion bucketRegion,
                                                                        final Set<InternalDistributedMember> unmodifiableRecipients,
-                                                                       final boolean usedForPartitionedRegionBucket,
                                                                        final FilterRoutingInfo filterRouting,
                                                                        final Set<InternalDistributedMember> twoMessages) {
-    if (supportsAdjunctMessaging() && usedForPartitionedRegionBucket) {
-      return getAdjunctReceivers((BucketRegion) region, unmodifiableRecipients, twoMessages,
-          filterRouting);
+    if (supportsAdjunctMessaging() && null != bucketRegion) {
+      return getAdjunctReceivers(bucketRegion, unmodifiableRecipients, twoMessages, filterRouting);
     }
 
     return emptySet();
