@@ -117,6 +117,7 @@ public abstract class DistributedCacheOperation {
    * @since GemFire 5.7
    */
   public static final byte DESERIALIZATION_POLICY_LAZY = (byte) 2;
+  private static PartitionedRegion redisDataRegion;
 
   /**
    * @param deserializationPolicy must be one of the following: DESERIALIZATION_POLICY_NONE,
@@ -274,8 +275,10 @@ public abstract class DistributedCacheOperation {
 //            viewVersion);
 //      }
       try {
-        logger.info("XXXXX: {}", this);
-        _distribute();
+        if (!isRedisDataRegion(region)) {
+          logger.info("XXXXX: {}", this);
+          _distribute();
+        }
       } catch (InvalidVersionException e) {
 //        if (logger.isTraceEnabled(LogMarker.DM_VERBOSE)) {
 //          logger.trace(LogMarker.DM_VERBOSE,
@@ -292,6 +295,20 @@ public abstract class DistributedCacheOperation {
       throw e;
     }
     return viewVersion;
+  }
+
+  private static boolean isRedisDataRegion(final DistributedRegion region) {
+    if (region instanceof BucketRegion) {
+      final PartitionedRegion partitionedRegion = region.getPartitionedRegion();
+
+      if (null == redisDataRegion && partitionedRegion.getName().contains("REDIS_DATA")) {
+        redisDataRegion = partitionedRegion;
+      }
+
+      return partitionedRegion == redisDataRegion;
+    }
+
+    return false;
   }
 
   /**
