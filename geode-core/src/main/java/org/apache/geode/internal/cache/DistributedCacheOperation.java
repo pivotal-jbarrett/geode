@@ -464,7 +464,7 @@ public abstract class DistributedCacheOperation {
 
     final Set<InternalDistributedMember> failures = distributeToMembers(region, modifiableRecipients, cachelessNodes, needsOldValueInCacheOp, cachelessNodesWithNoCacheServer, msg);
 
-    sendPartitionedRegionListenerNotifications((Bucket) region, filterRouting, bucketRegion,
+    sendPartitionedRegionListenerNotifications(bucketRegion, filterRouting,
         modifiableRecipients, adjunctRecipients, cachelessNodes, isPutAll, isRemoveAll);
 
     computeLocalClientRouting(filterRouting, bucketRegion);
@@ -530,9 +530,8 @@ public abstract class DistributedCacheOperation {
   /**
    *   send partitioned region listener notification messages now
    */
-  private void sendPartitionedRegionListenerNotifications(final Bucket region,
+  private void sendPartitionedRegionListenerNotifications(final BucketRegion bucketRegion,
                                                           final FilterRoutingInfo filterRouting,
-                                                          final BucketRegion bucketRegion,
                                                           final Set<InternalDistributedMember> modifiableRecipients,
                                                           final Set<InternalDistributedMember> adjunctRecipients,
                                                           final Set<InternalDistributedMember> cachelessNodes,
@@ -544,7 +543,7 @@ public abstract class DistributedCacheOperation {
 
       // TODO jabarrett - optimize the adding of entries.
       final Set<InternalDistributedMember> adjunctRecipientsWithNoCacheServer = new HashSet<>(adjunctRecipients);
-      final Set<InternalDistributedMember> adviseCacheServers = region.getPartitionedRegion().getCacheDistributionAdvisor().adviseCacheServers();
+      final Set<InternalDistributedMember> adviseCacheServers = bucketRegion.getPartitionedRegion().getCacheDistributionAdvisor().adviseCacheServers();
       adjunctRecipientsWithNoCacheServer.removeAll(adviseCacheServers);
 
       if (isPutAll) {
