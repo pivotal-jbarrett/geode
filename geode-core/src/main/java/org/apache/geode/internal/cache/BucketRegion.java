@@ -753,7 +753,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
           try {
             // before distribute: PR's put PR
             op = new UpdateOperation(event, modifiedTime);
-//            token = op.startOperation();
+            token = op.startOperation();
           } finally {
             partitionedRegion.getPrStats().endSendReplication(start);
           }
