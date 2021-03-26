@@ -1076,7 +1076,7 @@ public class ClusterDistributionManager implements DistributionManager {
   @Override
   public Set<InternalDistributedMember> putOutgoing(final DistributionMessage msg) {
     try {
-      DistributionMessageObserver observer = DistributionMessageObserver.getInstance();
+      final DistributionMessageObserver observer = DistributionMessageObserver.getInstance();
       if (observer != null) {
         observer.beforeSendMessage(this, msg);
       }

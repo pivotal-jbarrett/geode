@@ -727,11 +727,11 @@ public abstract class DistributedCacheOperation {
   private static Set<InternalDistributedMember> doPutMessage(final DistributedRegion region,
                                                              final DistributionManager manager,
                                                              final CacheOperationMessage message) {
-    if (!isRedisDataRegion(region)) {
+//    if (!isRedisDataRegion(region)) {
       return manager.putOutgoing(message);
-    }
+//    }
 
-    return new HashSet<>(message.getRecipients());
+//    return new HashSet<>(message.getRecipients());
   }
 
   /**
