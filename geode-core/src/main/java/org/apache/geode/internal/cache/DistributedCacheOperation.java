@@ -274,6 +274,7 @@ public abstract class DistributedCacheOperation {
 //            viewVersion);
 //      }
       try {
+        logger.info("XXXXX: {}", this);
         _distribute();
       } catch (InvalidVersionException e) {
 //        if (logger.isTraceEnabled(LogMarker.DM_VERBOSE)) {
