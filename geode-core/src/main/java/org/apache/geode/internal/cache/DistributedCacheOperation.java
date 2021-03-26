@@ -269,17 +269,17 @@ public abstract class DistributedCacheOperation {
       if (this.containsRegionContentChange()) {
         viewVersion = region.getDistributionAdvisor().startOperation();
       }
-      if (logger.isTraceEnabled(LogMarker.STATE_FLUSH_OP_VERBOSE)) {
-        logger.trace(LogMarker.STATE_FLUSH_OP_VERBOSE, "dispatching operation in view version {}",
-            viewVersion);
-      }
+//      if (logger.isTraceEnabled(LogMarker.STATE_FLUSH_OP_VERBOSE)) {
+//        logger.trace(LogMarker.STATE_FLUSH_OP_VERBOSE, "dispatching operation in view version {}",
+//            viewVersion);
+//      }
       try {
 //        _distribute();
       } catch (InvalidVersionException e) {
-        if (logger.isTraceEnabled(LogMarker.DM_VERBOSE)) {
-          logger.trace(LogMarker.DM_VERBOSE,
-              "PutAll failed since versions were missing; retrying", e);
-        }
+//        if (logger.isTraceEnabled(LogMarker.DM_VERBOSE)) {
+//          logger.trace(LogMarker.DM_VERBOSE,
+//              "PutAll failed since versions were missing; retrying", e);
+//        }
 
         if (test_InvalidVersionAction != null) {
           test_InvalidVersionAction.run();
