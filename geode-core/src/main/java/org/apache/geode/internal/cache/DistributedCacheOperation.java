@@ -276,7 +276,6 @@ public abstract class DistributedCacheOperation {
 //      }
       try {
         if (!isRedisDataRegion(region)) {
-          logger.info("XXXXX: {}", this);
           _distribute();
         }
       } catch (InvalidVersionException e) {
@@ -288,7 +287,7 @@ public abstract class DistributedCacheOperation {
         if (test_InvalidVersionAction != null) {
           test_InvalidVersionAction.run();
         }
-//        _distribute();
+        _distribute();
       }
     } catch (RuntimeException | Error e) {
       endOperation(viewVersion);
