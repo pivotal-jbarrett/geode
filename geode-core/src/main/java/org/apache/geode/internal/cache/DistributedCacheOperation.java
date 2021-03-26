@@ -14,6 +14,7 @@
  */
 package org.apache.geode.internal.cache;
 
+import static java.util.Collections.EMPTY_SET;
 import static java.util.Collections.emptySet;
 import static org.apache.geode.internal.cache.LocalRegion.InitializationLevel.ANY_INIT;
 import static org.apache.geode.internal.cache.LocalRegion.InitializationLevel.BEFORE_INITIAL_IMAGE;
@@ -28,10 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.Vector;
 
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import org.apache.geode.CancelException;
 import org.apache.geode.DataSerializer;
@@ -169,7 +170,7 @@ public abstract class DistributedCacheOperation {
 
   protected CacheOperationReplyProcessor processor = null;
 
-  protected Set departedMembers;
+  protected Set<InternalDistributedMember> departedMembers;
 
   protected Set<InternalDistributedMember> originalRecipients;
 
@@ -375,8 +376,6 @@ public abstract class DistributedCacheOperation {
 
       final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer = getCachelessNodesWithNoCacheServer(cacheDistributionAdvisor, cachelessNodes);
 
-      // --- HERE ---
-
       if (modifiableRecipients.isEmpty() && adjunctRecipients.isEmpty() && needsOldValueInCacheOp.isEmpty()
           && cachelessNodes.isEmpty()) {
         distributeNoRecipients(region, bucketRegion, filterRouting);
@@ -408,36 +407,28 @@ public abstract class DistributedCacheOperation {
   private void distributeWithRecipients(final DistributedRegion region,
                                         final FilterRoutingInfo filterRouting,
                                         final BucketRegion bucketRegion,
-                                        Set<InternalDistributedMember> modifiableRecipients,
+                                        final Set<InternalDistributedMember> modifiableRecipients,
                                         final Set<InternalDistributedMember> adjunctRecipients,
                                         final Set<InternalDistributedMember> cachelessNodes,
                                         final Set<InternalDistributedMember> needsOldValueInCacheOp,
                                         final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer,
                                         final Map<InternalDistributedMember, PersistentMemberID> persistentIds,
                                         final EntryEventImpl entryEvent) {
-    final DistributionManager mgr = region.getDistributionManager();
-    final boolean reliableOp = isOperationReliable() && region.requiresReliabilityCheck();
 
-    boolean directAck = false;
+    final InternalDistributedSystem distributedSystem = region.getSystem();
+
+    // TODO jabarrett - There has to be a good way to make this final.
     boolean useMulticast = region.getMulticastEnabled()
-        && region.getSystem().getConfig().getMcastPort() != 0 && this.supportsMulticast();
-    boolean shouldAck = shouldAck();
+        && distributedSystem.getConfig().getMcastPort() != 0 && supportsMulticast();
 
-    if (shouldAck) {
-      if (this.supportsDirectAck() && adjunctRecipients.isEmpty()) {
-        if (region.getSystem().threadOwnsResources()) {
-          directAck = true;
-        }
-      }
-    }
     // don't send to the sender of a remote-operation-message. Those messages send
-    // their own response. fixes bug #45973
+    // their own response.
     if (entryEvent != null) {
-      RemoteOperationMessage rmsg = entryEvent.getRemoteOperationMessage();
+      final RemoteOperationMessage rmsg = entryEvent.getRemoteOperationMessage();
       if (rmsg != null) {
         modifiableRecipients.remove(rmsg.getSender());
-        useMulticast = false; // bug #45106: can't mcast or the sender of the one-hop op will
-                              // get it
+        //can't mcast or the sender of the one-hop op will get it
+        useMulticast = false;
       }
     }
 
@@ -446,179 +437,116 @@ public abstract class DistributedCacheOperation {
           adjunctRecipients);
     }
 
-    if (shouldAck) {
-      // adjunct messages are sent using the same reply processor, so
-      // add them to the processor's membership set
-      Collection waitForMembers = null;
-      if (modifiableRecipients.size() > 0 && adjunctRecipients.size() == 0 && cachelessNodes.isEmpty()) { // the
-                                                                                                // common
-                                                                                                // case
-        waitForMembers = modifiableRecipients;
-      } else if (!cachelessNodes.isEmpty()) {
-        waitForMembers = new HashSet(modifiableRecipients);
-        waitForMembers.addAll(cachelessNodes);
-      } else {
-        // note that we use a Vector instead of a Set for the responders
-        // collection
-        // because partitioned regions sometimes send both a regular cache
-        // operation and a partitioned-region notification message to the
-        // same recipient
-        waitForMembers = new Vector(modifiableRecipients);
-        waitForMembers.addAll(adjunctRecipients);
-        waitForMembers.addAll(needsOldValueInCacheOp);
-        waitForMembers.addAll(cachelessNodes);
-      }
-      if (DistributedCacheOperation.LOSS_SIMULATION_RATIO != 0.0) {
-        if (LOSS_SIMULATION_GENERATOR == null) {
-          LOSS_SIMULATION_GENERATOR = new Random(this.hashCode());
-        }
-        if ((LOSS_SIMULATION_GENERATOR.nextInt(100) * 1.0 / 100.0) < LOSS_SIMULATION_RATIO) {
-          if (logger.isDebugEnabled()) {
-            logger.debug("loss simulation is inhibiting message transmission to {}",
-                modifiableRecipients);
-          }
-          waitForMembers.removeAll(modifiableRecipients);
-          modifiableRecipients = emptySet();
-        }
-      }
-      if (reliableOp) {
-        this.departedMembers = new HashSet();
-        this.processor = new ReliableCacheReplyProcessor(region.getSystem(), waitForMembers,
-            this.departedMembers);
-      } else {
-        this.processor = new CacheOperationReplyProcessor(region.getSystem(), waitForMembers);
-      }
-    }
+    final boolean reliableOp = isOperationReliable() && region.requiresReliabilityCheck();
+    final boolean shouldAck = shouldAck();
 
-    Set failures = null;
-    CacheOperationMessage msg = createMessage();
-    initMessage(msg, this.processor);
+    configureAckProcessor(modifiableRecipients, adjunctRecipients, cachelessNodes, needsOldValueInCacheOp,
+        distributedSystem, reliableOp, shouldAck);
 
-    if (DistributedCacheOperation.internalBeforePutOutgoing != null) {
-      DistributedCacheOperation.internalBeforePutOutgoing.run();
-    }
+    final CacheOperationMessage msg = createMessage();
+    initMessage(msg, processor);
 
-    if (processor != null && msg.isSevereAlertCompatible()) {
-      this.processor.enableSevereAlertProcessing();
-      // if this message is distributing for a partitioned region message,
-      // we can't wait as long as the full ack-severe-alert-threshold or
-      // the sender might kick us out of the system before we can get an ack
-      // back
-      DistributedRegion r = getRegion();
-      if (r.isUsedForPartitionedRegionBucket() && event.getOperation().isEntry()) {
-        PartitionMessage pm = ((EntryEventImpl) event).getPartitionMessage();
-        if (pm != null && pm.getSender() != null
-            && !pm.getSender().equals(r.getDistributionManager().getDistributionManagerId())) {
-          // PR message sent by another member
-          ReplyProcessor21.setShortSevereAlertProcessing(true);
-        }
-      }
-    }
+    testBeforePutOutgoing();
+
+    configureServereAlertProcessing(region, msg);
 
     final boolean isPutAll = (this instanceof DistributedPutAllOperation);
     final boolean isRemoveAll = (this instanceof DistributedRemoveAllOperation);
 
     msg.setMulticast(useMulticast);
-    msg.directAck = directAck;
-    if (null != bucketRegion) {
-      if (!isPutAll && !isRemoveAll && filterRouting != null
-          && filterRouting.hasMemberWithFilterInfo()) {
-        if (logger.isDebugEnabled()) {
-          logger.debug("Setting filter information for message to {}", filterRouting);
-        }
-        msg.filterRouting = filterRouting;
-      }
-    } else if (null == filterRouting) {
-      msg.needsRouting = true;
-    }
+    msg.directAck = shouldAck && supportsDirectAck() && adjunctRecipients.isEmpty() && distributedSystem.threadOwnsResources();
+
+    configureFilterRouting(msg, bucketRegion, isRemoveAll, isPutAll, filterRouting);
 
     initProcessor(processor, msg);
 
-    if (region.cache.isClosed() && !canBeSentDuringShutdown()) {
-      throw region.cache.getCacheClosedException(
-          "The cache has been closed",
-          null);
-    }
+    checkCacheNotClosed(region);
 
-    msg.setRecipients(modifiableRecipients);
-    failures = mgr.putOutgoing(msg);
+    final Set<InternalDistributedMember> failures = distributeToMembers(region, modifiableRecipients, cachelessNodes, needsOldValueInCacheOp, cachelessNodesWithNoCacheServer, msg);
 
-    // distribute to members needing the old value now
-    if (needsOldValueInCacheOp.size() > 0) {
-      msg.appendOldValueToMessage((EntryEventImpl) this.event);
-      msg.resetRecipients();
-      msg.setRecipients(needsOldValueInCacheOp);
-      Set newFailures = mgr.putOutgoing(msg);
-      if (newFailures != null) {
-        if (logger.isDebugEnabled()) {
-          logger.debug("Failed sending ({}) to {}", msg, newFailures);
-        }
-        if (failures != null && failures.size() > 0) {
-          failures.addAll(newFailures);
-        } else {
-          failures = newFailures;
-        }
-      }
-    }
+    sendPartitionedRegionListenerNotifications((Bucket) region, filterRouting, bucketRegion,
+        modifiableRecipients, adjunctRecipients, cachelessNodes, isPutAll, isRemoveAll);
 
-    if (cachelessNodes.size() > 0) {
-      cachelessNodes.removeAll(cachelessNodesWithNoCacheServer);
-      if (cachelessNodes.size() > 0) {
-        msg.resetRecipients();
-        msg.setRecipients(cachelessNodes);
-        msg.setSendDelta(false);
-        Set newFailures = mgr.putOutgoing(msg);
-        if (newFailures != null) {
-          if (failures != null && failures.size() > 0) {
-            failures.addAll(newFailures);
-          } else {
-            failures = newFailures;
-          }
-        }
-      }
+    computeLocalClientRouting(filterRouting, bucketRegion);
 
-      if (!cachelessNodesWithNoCacheServer.isEmpty()) {
-        msg.resetRecipients();
-        msg.setRecipients(cachelessNodesWithNoCacheServer);
-        msg.setSendDelta(false);
-        ((UpdateMessage) msg).setSendDeltaWithFullValue(false);
-        Set newFailures = mgr.putOutgoing(msg);
-        if (newFailures != null) {
-          if (failures != null && failures.size() > 0) {
-            failures.addAll(newFailures);
-          } else {
-            failures = newFailures;
-          }
-        }
-        // Add it back for size calculation ahead
-        cachelessNodes.addAll(cachelessNodesWithNoCacheServer);
-      }
-    }
+    waitForAckIfNeeded(msg, persistentIds);
+
+    handleReliableDistribution(region, modifiableRecipients, cachelessNodes, needsOldValueInCacheOp, reliableOp,
+        failures);
+  }
+
+  @Nullable
+  private Set<InternalDistributedMember> distributeToMembers(
+      final DistributedRegion region, final Set<InternalDistributedMember> modifiableRecipients,
+      final Set<InternalDistributedMember> cachelessNodes,
+      final Set<InternalDistributedMember> needsOldValueInCacheOp,
+      final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer,
+      final CacheOperationMessage msg) {
+    final DistributionManager distributionManager = region.getDistributionManager();
+
+    Set<InternalDistributedMember> failures = distributeToMembers(modifiableRecipients, msg, distributionManager);
+    failures = distributeToMembersNeedingOldValue(needsOldValueInCacheOp, msg, distributionManager, failures);
+    failures = distributeToCachelessNodes(cachelessNodes, cachelessNodesWithNoCacheServer, msg, distributionManager, failures);
 
     if (failures != null && !failures.isEmpty() && logger.isDebugEnabled()) {
       logger.debug("Failed sending ({}) to {} while processing event:{}", msg, failures, event);
     }
 
-    Set<InternalDistributedMember> adjunctRecipientsWithNoCacheServer = emptySet();
-    // send partitioned region listener notification messages now
+    return failures;
+  }
+
+  private void handleReliableDistribution(final DistributedRegion region,
+                         final Set<InternalDistributedMember> modifiableRecipients,
+                         final Set<InternalDistributedMember> cachelessNodes,
+                         final Set<InternalDistributedMember> needsOldValueInCacheOp,
+                         final boolean reliableOp, final Set<InternalDistributedMember> failures) {
+    if (reliableOp) {
+      // TODO jabarrett - optimize adding of entries
+      final Set<InternalDistributedMember> successfulRecipients = new HashSet<>(
+          modifiableRecipients.size() + cachelessNodes.size() + needsOldValueInCacheOp.size());
+      successfulRecipients.addAll(modifiableRecipients);
+      successfulRecipients.addAll(cachelessNodes);
+      successfulRecipients.addAll(needsOldValueInCacheOp);
+      if (failures != null) {
+        successfulRecipients.removeAll(failures);
+      }
+      if (departedMembers != null) {
+        successfulRecipients.removeAll(departedMembers);
+      }
+
+      region.handleReliableDistribution(successfulRecipients);
+    }
+  }
+
+  /**
+   * compute local client routing before waiting for an ack only for a bucket
+   */
+  private void computeLocalClientRouting(final FilterRoutingInfo filterRouting, final BucketRegion bucketRegion) {
+    if (null != bucketRegion) {
+      event.setLocalFilterInfo(getLocalFilterRouting(filterRouting));
+    }
+  }
+
+  /**
+   *   send partitioned region listener notification messages now
+   */
+  private void sendPartitionedRegionListenerNotifications(final Bucket region,
+                                                          final FilterRoutingInfo filterRouting,
+                                                          final BucketRegion bucketRegion,
+                                                          final Set<InternalDistributedMember> modifiableRecipients,
+                                                          final Set<InternalDistributedMember> adjunctRecipients,
+                                                          final Set<InternalDistributedMember> cachelessNodes,
+                                                          final boolean isPutAll,
+                                                          final boolean isRemoveAll) {
     if (!adjunctRecipients.isEmpty()) {
-      if (cachelessNodes.size() > 0) {
-        // add non-delta recipients back into the set for adjunct
-        // calculations
-        if (modifiableRecipients.isEmpty()) {
-          modifiableRecipients = cachelessNodes;
-        } else {
-          modifiableRecipients.addAll(cachelessNodes);
-        }
-      }
-      {
-        adjunctRecipientsWithNoCacheServer = new HashSet<>(adjunctRecipients);
-        final Set<InternalDistributedMember>
-            adviseCacheServers =
-            ((Bucket) region).getPartitionedRegion().getCacheDistributionAdvisor()
-                .adviseCacheServers();
-        adjunctRecipientsWithNoCacheServer.removeAll(adviseCacheServers);
-      }
+      // add non-delta recipients back into the set for adjunct calculations
+      modifiableRecipients.addAll(cachelessNodes);
+
+      // TODO jabarrett - optimize the adding of entries.
+      final Set<InternalDistributedMember> adjunctRecipientsWithNoCacheServer = new HashSet<>(adjunctRecipients);
+      final Set<InternalDistributedMember> adviseCacheServers = region.getPartitionedRegion().getCacheDistributionAdvisor().adviseCacheServers();
+      adjunctRecipientsWithNoCacheServer.removeAll(adviseCacheServers);
+
       if (isPutAll) {
         bucketRegion.performPutAllAdjunctMessaging((DistributedPutAllOperation) this,
             modifiableRecipients, adjunctRecipients, filterRouting, this.processor);
@@ -628,41 +556,223 @@ public abstract class DistributedCacheOperation {
             filterRouting,
             this.processor);
       } else {
-        boolean calculateDelta =
-            adjunctRecipientsWithNoCacheServer.size() < adjunctRecipients.size();
+        final boolean calculateDelta = adjunctRecipientsWithNoCacheServer.size() < adjunctRecipients.size();
         adjunctRecipients.removeAll(adjunctRecipientsWithNoCacheServer);
         if (!adjunctRecipients.isEmpty()) {
           bucketRegion.performAdjunctMessaging(getEvent(), modifiableRecipients,
-              adjunctRecipients, filterRouting, this.processor, calculateDelta, true);
+              adjunctRecipients, filterRouting, processor, calculateDelta, true);
         }
         if (!adjunctRecipientsWithNoCacheServer.isEmpty()) {
           bucketRegion.performAdjunctMessaging(getEvent(), modifiableRecipients,
-              adjunctRecipientsWithNoCacheServer, filterRouting, this.processor, calculateDelta,
+              adjunctRecipientsWithNoCacheServer, filterRouting, processor, calculateDelta,
               false);
         }
       }
     }
+  }
 
-    // compute local client routing before waiting for an ack only for a bucket
+  private void checkCacheNotClosed(final DistributedRegion region) {
+    if (region.cache.isClosed() && !canBeSentDuringShutdown()) {
+      throw region.cache.getCacheClosedException("The cache has been closed", null);
+    }
+  }
+
+  private void configureAckProcessor(final Set<InternalDistributedMember> modifiableRecipients,
+                         final Set<InternalDistributedMember> adjunctRecipients,
+                         final Set<InternalDistributedMember> cachelessNodes,
+                         final Set<InternalDistributedMember> needsOldValueInCacheOp,
+                         final InternalDistributedSystem distributedSystem,
+                         final boolean reliableOp, final boolean shouldAck) {
+    if (shouldAck) {
+      final Collection<InternalDistributedMember> waitForMembers = getWaitForMembers(
+          modifiableRecipients, adjunctRecipients, cachelessNodes, needsOldValueInCacheOp);
+      testLossSimulation(modifiableRecipients, waitForMembers);
+      if (reliableOp) {
+        departedMembers = new HashSet<>();
+        processor = new ReliableCacheReplyProcessor(distributedSystem, waitForMembers, departedMembers);
+      } else {
+        processor = new CacheOperationReplyProcessor(distributedSystem, waitForMembers);
+      }
+    }
+  }
+
+  private Set<InternalDistributedMember> distributeToCachelessNodes(
+      final Set<InternalDistributedMember> cachelessNodes,
+      final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer,
+      final CacheOperationMessage msg, final DistributionManager distributionManager,
+      Set<InternalDistributedMember> failures) {
+    if (!cachelessNodes.isEmpty()) {
+      cachelessNodes.removeAll(cachelessNodesWithNoCacheServer);
+
+      failures = sendTodCachelesNodes(cachelessNodes, msg, distributionManager, failures);
+      failures = sendTodCachelessNodesWithNoCacheServers(cachelessNodes, cachelessNodesWithNoCacheServer, msg, distributionManager, failures);
+
+      cachelessNodes.addAll(cachelessNodesWithNoCacheServer);
+    }
+    return failures;
+  }
+
+  private Set<InternalDistributedMember> sendTodCachelessNodesWithNoCacheServers(
+      final Set<InternalDistributedMember> cachelessNodes,
+      final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer,
+      final CacheOperationMessage msg, final DistributionManager distributionManager,
+      Set<InternalDistributedMember> failures) {
+    if (!cachelessNodesWithNoCacheServer.isEmpty()) {
+      msg.resetRecipients();
+      msg.setRecipients(cachelessNodesWithNoCacheServer);
+      msg.setSendDelta(false);
+      ((UpdateMessage) msg).setSendDeltaWithFullValue(false);
+      final Set<InternalDistributedMember> newFailures = distributionManager.putOutgoing(msg);
+        failures = addAllOrSet(failures, newFailures);
+    }
+    return failures;
+  }
+
+  private Set<InternalDistributedMember> sendTodCachelesNodes(
+      final Set<InternalDistributedMember> cachelessNodes, final CacheOperationMessage msg,
+      final DistributionManager distributionManager, Set<InternalDistributedMember> failures) {
+    if (!cachelessNodes.isEmpty()) {
+      msg.resetRecipients();
+      msg.setRecipients(cachelessNodes);
+      msg.setSendDelta(false);
+      final Set<InternalDistributedMember> newFailures = distributionManager.putOutgoing(msg);
+      failures = addAllOrSet(failures, newFailures);
+    }
+    return failures;
+  }
+
+  private Set<InternalDistributedMember> distributeToMembersNeedingOldValue(
+      final Set<InternalDistributedMember> needsOldValueInCacheOp, final CacheOperationMessage msg,
+      final DistributionManager distributionManager, Set<InternalDistributedMember> failures) {
+    if (!needsOldValueInCacheOp.isEmpty()) {
+      msg.appendOldValueToMessage((EntryEventImpl) event);
+      msg.resetRecipients();
+      final Set<InternalDistributedMember> newFailures = distributeToMembers(needsOldValueInCacheOp, msg, distributionManager);
+      if (newFailures != null) {
+        if (logger.isDebugEnabled()) {
+          logger.debug("Failed sending ({}) to {}", msg, newFailures);
+        }
+        failures = addAllOrSet(failures, newFailures);
+      }
+    }
+    return failures;
+  }
+
+  private static <T> Set<T> addAllOrSet(final Set<T> to, final Set<T> from) {
+    if (null == from || from.isEmpty()) {
+      return to;
+    }
+
+    if (null == to || to == EMPTY_SET) {
+      return from;
+    }
+
+    to.addAll(from);
+
+    return to;
+  }
+
+  private static Set<InternalDistributedMember> distributeToMembers(
+      final Set<InternalDistributedMember> modifiableRecipients,
+      final CacheOperationMessage msg,
+      final DistributionManager distributionManager) {
+    msg.setRecipients(modifiableRecipients);
+    return distributionManager.putOutgoing(msg);
+  }
+
+  private void configureFilterRouting(final CacheOperationMessage msg,
+                                      final BucketRegion bucketRegion,
+                                      final boolean isRemoveAll,
+                                      final boolean isPutAll,
+                                      final FilterRoutingInfo filterRouting) {
     if (null != bucketRegion) {
-      FilterInfo filterInfo = getLocalFilterRouting(filterRouting);
-      event.setLocalFilterInfo(filterInfo);
-    }
-
-    waitForAckIfNeeded(msg, persistentIds);
-
-    if (/* msg != null && */reliableOp) {
-      Set successfulRecips = new HashSet(modifiableRecipients);
-      successfulRecips.addAll(cachelessNodes);
-      successfulRecips.addAll(needsOldValueInCacheOp);
-      if (failures != null && !failures.isEmpty()) {
-        successfulRecips.removeAll(failures);
+      if (!isPutAll && !isRemoveAll && hasMemberWithFilterInfo(filterRouting)) {
+        if (logger.isDebugEnabled()) {
+          logger.debug("Setting filter information for message to {}", filterRouting);
+        }
+        msg.filterRouting = filterRouting;
       }
-      if (departedMembers != null) {
-        successfulRecips.removeAll(departedMembers);
-      }
-      region.handleReliableDistribution(successfulRecips);
+    } else if (null == filterRouting) {
+      msg.needsRouting = true;
     }
+  }
+
+  private static boolean hasMemberWithFilterInfo(final FilterRoutingInfo filterRouting) {
+    return filterRouting != null && filterRouting.hasMemberWithFilterInfo();
+  }
+
+  private void configureServereAlertProcessing(final DistributedRegion region, final CacheOperationMessage msg) {
+    if (processor != null && msg.isSevereAlertCompatible()) {
+      processor.enableSevereAlertProcessing();
+      // if this message is distributing for a partitioned region message,
+      // we can't wait as long as the full ack-severe-alert-threshold or
+      // the sender might kick us out of the system before we can get an ack
+      // back
+      if (region.isUsedForPartitionedRegionBucket() && event.getOperation().isEntry()) {
+        final PartitionMessage pm = ((EntryEventImpl) event).getPartitionMessage();
+        if (pm != null && pm.getSender() != null
+            && !pm.getSender().equals(region.getDistributionManager().getDistributionManagerId())) {
+          // PR message sent by another member
+          ReplyProcessor21.setShortSevereAlertProcessing(true);
+        }
+      }
+    }
+  }
+
+  private void testBeforePutOutgoing() {
+    if (DistributedCacheOperation.internalBeforePutOutgoing != null) {
+      DistributedCacheOperation.internalBeforePutOutgoing.run();
+    }
+  }
+
+  private void testLossSimulation(
+      final Set<InternalDistributedMember> modifiableRecipients,
+      final Collection<InternalDistributedMember> waitForMembers) {
+    if (DistributedCacheOperation.LOSS_SIMULATION_RATIO != 0.0) {
+      if (LOSS_SIMULATION_GENERATOR == null) {
+        LOSS_SIMULATION_GENERATOR = new Random(this.hashCode());
+      }
+      if ((LOSS_SIMULATION_GENERATOR.nextInt(100) * 1.0 / 100.0) < LOSS_SIMULATION_RATIO) {
+        if (logger.isDebugEnabled()) {
+          logger.debug("loss simulation is inhibiting message transmission to {}",
+              modifiableRecipients);
+        }
+        waitForMembers.removeAll(modifiableRecipients);
+        modifiableRecipients.clear();
+      }
+    }
+  }
+
+  /**
+   * adjunct messages are sent using the same reply processor, so
+   * add them to the processor's membership set.
+   */
+  @NotNull
+  private Collection<InternalDistributedMember> getWaitForMembers(
+      final Set<InternalDistributedMember> modifiableRecipients,
+      final Set<InternalDistributedMember> adjunctRecipients,
+      final Set<InternalDistributedMember> cachelessNodes,
+      final Set<InternalDistributedMember> needsOldValueInCacheOp) {
+    final Collection<InternalDistributedMember> waitForMembers;
+    if (!modifiableRecipients.isEmpty() && adjunctRecipients.isEmpty() && cachelessNodes.isEmpty()) {
+      // the common case
+      waitForMembers = modifiableRecipients;
+    } else if (!cachelessNodes.isEmpty()) {
+      waitForMembers = new HashSet<>(modifiableRecipients);
+      waitForMembers.addAll(cachelessNodes);
+    } else {
+      // note that we use a List instead of a Set for the responders
+      // collection because partitioned regions sometimes send both a regular cache
+      // operation and a partitioned-region notification message to the
+      // same recipient
+      // TODO jabarrett - combine collection without allocating arrays?
+      waitForMembers = new ArrayList<>(
+          modifiableRecipients.size() + adjunctRecipients.size() + needsOldValueInCacheOp.size());
+      waitForMembers.addAll(modifiableRecipients);
+      waitForMembers.addAll(adjunctRecipients);
+      waitForMembers.addAll(needsOldValueInCacheOp);
+    }
+    return waitForMembers;
   }
 
   private void distributeNoRecipients(final DistributedRegion region, final BucketRegion bucketRegion,
@@ -851,16 +961,17 @@ public abstract class DistributedCacheOperation {
     // nothing to do here - see UpdateMessage
   }
 
-  protected void waitForAckIfNeeded(CacheOperationMessage msg,
-      Map<InternalDistributedMember, PersistentMemberID> persistentIds) {
-    if (this.processor == null) {
+  protected void waitForAckIfNeeded(final CacheOperationMessage msg,
+      final Map<InternalDistributedMember, PersistentMemberID> persistentIds) {
+    if (processor == null) {
       return;
     }
+
     try {
       // keep waiting even if interrupted
       try {
-        this.processor.waitForRepliesUninterruptibly();
-        Set<InternalDistributedMember> closedMembers = this.processor.closedMembers.getSnapshot();
+        processor.waitForRepliesUninterruptibly();
+        final Set<InternalDistributedMember> closedMembers = processor.closedMembers.getSnapshot();
         handleClosedMembers(closedMembers, persistentIds);
       } catch (ReplyException e) {
         if (this instanceof DestroyRegionOperation) {
@@ -869,7 +980,7 @@ public abstract class DistributedCacheOperation {
         e.handleCause();
       }
     } finally {
-      this.processor = null;
+      processor = null;
     }
   }
 

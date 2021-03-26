@@ -92,7 +92,8 @@ public class UpdateOperation extends AbstractUpdateOperation {
   }
 
   @Override
-  protected void initProcessor(CacheOperationReplyProcessor p, CacheOperationMessage msg) {
+  protected void initProcessor(final CacheOperationReplyProcessor p, final CacheOperationMessage msg) {
+    // TODO jabarrett - why do we clone messages here?
     if (processor != null) {
       if (msg instanceof UpdateWithContextMessage) {
         processor.msg = new UpdateWithContextMessage((UpdateWithContextMessage) msg);
