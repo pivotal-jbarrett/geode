@@ -748,8 +748,8 @@ public class BucketRegion extends DistributedRegion implements Bucket {
         // the GII has completed and the region is initialized and open for local
         // ops
 
-//        if (!event.isBulkOpInProgress()) {
-//          long start = partitionedRegion.getPrStats().startSendReplication();
+        if (!event.isBulkOpInProgress()) {
+          long start = partitionedRegion.getPrStats().startSendReplication();
 //          try {
 //            // before distribute: PR's put PR
 //            op = new UpdateOperation(event, modifiedTime);
@@ -757,10 +757,10 @@ public class BucketRegion extends DistributedRegion implements Bucket {
 //          } finally {
 //            partitionedRegion.getPrStats().endSendReplication(start);
 //          }
-//        } else {
-//          // consolidate the UpdateOperation for each entry into a PutAllMessage
-//          // basicPutPart3 takes care of this
-//        }
+        } else {
+          // consolidate the UpdateOperation for each entry into a PutAllMessage
+          // basicPutPart3 takes care of this
+        }
       }
 
       return super.basicPutPart2(event, entry, isInitialized, lastModified, clearConflict);
