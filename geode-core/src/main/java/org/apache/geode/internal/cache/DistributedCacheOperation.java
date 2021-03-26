@@ -275,9 +275,9 @@ public abstract class DistributedCacheOperation {
 //            viewVersion);
 //      }
       try {
-        if (!isRedisDataRegion(region)) {
+//        if (!isRedisDataRegion(region)) {
           _distribute();
-        }
+//        }
       } catch (InvalidVersionException e) {
 //        if (logger.isTraceEnabled(LogMarker.DM_VERBOSE)) {
 //          logger.trace(LogMarker.DM_VERBOSE,
@@ -586,14 +586,14 @@ public abstract class DistributedCacheOperation {
         }
 
         msg.setRecipients(recipients);
-        failures = mgr.putOutgoing(msg);
+        failures = doPutMessage(region, mgr, msg);
 
         // distribute to members needing the old value now
         if (needsOldValueInCacheOp.size() > 0) {
           msg.appendOldValueToMessage((EntryEventImpl) this.event);
           msg.resetRecipients();
           msg.setRecipients(needsOldValueInCacheOp);
-          Set newFailures = mgr.putOutgoing(msg);
+          Set newFailures = doPutMessage(region, mgr, msg);
           if (newFailures != null) {
             if (logger.isDebugEnabled()) {
               logger.debug("Failed sending ({}) to {}", msg, newFailures);
@@ -612,7 +612,7 @@ public abstract class DistributedCacheOperation {
             msg.resetRecipients();
             msg.setRecipients(cachelessNodes);
             msg.setSendDelta(false);
-            Set newFailures = mgr.putOutgoing(msg);
+            Set newFailures = doPutMessage(region, mgr, msg);
             if (newFailures != null) {
               if (failures != null && failures.size() > 0) {
                 failures.addAll(newFailures);
@@ -627,7 +627,7 @@ public abstract class DistributedCacheOperation {
             msg.setRecipients(cachelessNodesWithNoCacheServer);
             msg.setSendDelta(false);
             ((UpdateMessage) msg).setSendDeltaWithFullValue(false);
-            Set newFailures = mgr.putOutgoing(msg);
+            Set newFailures = doPutMessage(region, mgr, msg);
             if (newFailures != null) {
               if (failures != null && failures.size() > 0) {
                 failures.addAll(newFailures);
@@ -722,6 +722,16 @@ public abstract class DistributedCacheOperation {
     } finally {
       ReplyProcessor21.setShortSevereAlertProcessing(false);
     }
+  }
+
+  private static Set<InternalDistributedMember> doPutMessage(final DistributedRegion region,
+                                                             final DistributionManager manager,
+                                                             final CacheOperationMessage message) {
+    if (!isRedisDataRegion(region)) {
+      return manager.putOutgoing(message);
+    }
+
+    return new HashSet<>(message.getRecipients());
   }
 
   /**
