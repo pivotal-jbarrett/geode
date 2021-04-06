@@ -701,15 +701,15 @@ public class BucketRegion extends DistributedRegion implements Bucket {
       long lastModified, boolean clearConflict) {
     final long modifiedTime = event.getEventTime(lastModified);
 
-    final RingBuffer<BasicPutPart2Event> ringBuffer = disruptor.getRingBuffer();
-    ringBuffer.publishEvent((basicPutPart2, sequence) -> {
-      basicPutPart2.bucketRegion = this;
-      basicPutPart2.entryEvent = event;
-      basicPutPart2.regionEntry = entry;
-      basicPutPart2.isInitialized = isInitialized;
-      basicPutPart2.lastModified = lastModified;
-      basicPutPart2.clearConflict = clearConflict;
-    });
+//    final RingBuffer<BasicPutPart2Event> ringBuffer = disruptor.getRingBuffer();
+//    ringBuffer.publishEvent((basicPutPart2, sequence) -> {
+//      basicPutPart2.bucketRegion = this;
+//      basicPutPart2.entryEvent = event;
+//      basicPutPart2.regionEntry = entry;
+//      basicPutPart2.isInitialized = isInitialized;
+//      basicPutPart2.lastModified = lastModified;
+//      basicPutPart2.clearConflict = clearConflict;
+//    });
 
     return modifiedTime;
   }
