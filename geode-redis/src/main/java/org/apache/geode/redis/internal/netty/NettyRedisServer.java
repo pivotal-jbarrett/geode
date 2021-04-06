@@ -40,6 +40,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -124,7 +125,7 @@ public class NettyRedisServer {
     ServerBootstrap serverBootstrap =
         new ServerBootstrap()
             .group(selectorGroup, workerGroup)
-            .channel(NioServerSocketChannel.class)
+            .channel(EpollServerSocketChannel.class)
             .childHandler(createChannelInitializer())
             .option(ChannelOption.SO_REUSEADDR, true)
             .childOption(ChannelOption.SO_SNDBUF, 1024 * 1024)
@@ -270,7 +271,7 @@ public class NettyRedisServer {
   private static EventLoopGroup createEventLoopGroup(String name, boolean isDaemon, int nThreads) {
     String fullName = "GeodeRedisServer-" + name + "Thread-";
     ThreadFactory threadFactory = new LoggingThreadFactory(fullName, isDaemon);
-    return new NioEventLoopGroup(nThreads, threadFactory);
+    return new EpollEventLoopGroup(nThreads, threadFactory);
   }
 
 }
