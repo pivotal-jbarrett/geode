@@ -1172,9 +1172,7 @@ public class GMSMembership<ID extends MemberIdentifier> implements Membership<ID
 
   @Override
   public boolean memberExists(ID m) {
-    latestViewReadLock.lock();
     MembershipView<ID> v = latestView;
-    latestViewReadLock.unlock();
     return v.contains(m);
   }
 
