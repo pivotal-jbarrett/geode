@@ -359,21 +359,27 @@ public abstract class DistributedCacheOperation {
         twoMessages = emptySet();
         filterRouting = null;
       }
+      logger.info("unmodifiableRecipients={}", unmodifiableRecipients);
 
       final Set<InternalDistributedMember> adjunctRecipients = getAdjunctRecipients(bucketRegion, unmodifiableRecipients,
               filterRouting, twoMessages);
+      logger.info("adjunctRecipients={}", adjunctRecipients);
 
       final EntryEventImpl entryEvent = event.getOperation().isEntry() ? getEvent() : null;
 
       final Set<InternalDistributedMember> needsOldValueInCacheOp = getNeedsOldValueInCacheOp(cacheDistributionAdvisor, unmodifiableRecipients, entryEvent);
+      logger.info("needsOldValueInCacheOp={}", needsOldValueInCacheOp);
       // TODO jabarrett - cleanup copy and remove.
       Set<InternalDistributedMember> modifiableRecipients = new HashSet<>(unmodifiableRecipients);
-      logger.info("modifiableRecipients={}", modifiableRecipients);
       modifiableRecipients.removeAll(needsOldValueInCacheOp);
+      logger.info("modifiableRecipients={}", modifiableRecipients);
 
       final Set<InternalDistributedMember> cachelessNodes = getCachelessNodes(region, cacheDistributionAdvisor);
+      logger.info("getCachelessNodes: cachelessNodes={}", cachelessNodes);
 
       adjustRecipientsAndCachelessNodes(adjunctRecipients, modifiableRecipients, cachelessNodes);
+      logger.info("adjustRecipientsAndCachelessNodes: modifiableRecipients={}", modifiableRecipients);
+      logger.info("adjustRecipientsAndCachelessNodes: cachelessNodes={}", cachelessNodes);
 
       final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer = getCachelessNodesWithNoCacheServer(cacheDistributionAdvisor, cachelessNodes);
 
@@ -416,6 +422,12 @@ public abstract class DistributedCacheOperation {
                                         final Map<InternalDistributedMember, PersistentMemberID> persistentIds,
                                         final EntryEventImpl entryEvent,
   final boolean debugEnabled) {
+    logger.info("distributeWithRecipients: modifiableRecipients={}", modifiableRecipients);
+    logger.info("distributeWithRecipients: adjunctRecipients={}", adjunctRecipients);
+    logger.info("distributeWithRecipients: cachelessNodes={}", cachelessNodes);
+    logger.info("distributeWithRecipients: adjunctRecipients={}", adjunctRecipients);
+    logger.info("distributeWithRecipients: needsOldValueInCacheOp={}", needsOldValueInCacheOp);
+    logger.info("distributeWithRecipients: cachelessNodesWithNoCacheServer={}", cachelessNodesWithNoCacheServer);
 
     final InternalDistributedSystem distributedSystem = region.getSystem();
 
@@ -806,6 +818,12 @@ public abstract class DistributedCacheOperation {
     }
   }
 
+  /**
+   *
+   * @param adjunctRecipients IN
+   * @param modifiableRecipients OUT
+   * @param cachelessNodes OUT
+   */
   private void adjustRecipientsAndCachelessNodes(final Set<InternalDistributedMember> adjunctRecipients,
                          final Set<InternalDistributedMember> modifiableRecipients,
                          final Set<InternalDistributedMember> cachelessNodes) {
