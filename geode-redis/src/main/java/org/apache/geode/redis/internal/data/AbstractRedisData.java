@@ -185,9 +185,13 @@ public abstract class AbstractRedisData implements RedisData {
     }
   }
 
+  private static class DeltaTypeCache {
+    static final DeltaType[] values = DeltaType.values();
+  }
+
   @Override
   public void fromDelta(DataInput in) throws IOException, InvalidDeltaException {
-    DeltaType deltaType = DataSerializer.readEnum(DeltaType.class, in);
+    DeltaType deltaType = DataSerializer.readEnum(DeltaTypeCache.values, in);
     switch (deltaType) {
       case TIMESTAMP:
         expirationTimestamp = DataSerializer.readLong(in);
