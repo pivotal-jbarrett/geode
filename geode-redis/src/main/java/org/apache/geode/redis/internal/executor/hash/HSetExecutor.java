@@ -41,16 +41,16 @@ public class HSetExecutor extends HashExecutor {
   @Override
   public RedisResponse executeCommand(Command command,
       ExecutionHandlerContext context) {
-    List<byte[]> commandElems = command.getProcessedCommand();
+//    List<byte[]> commandElems = command.getProcessedCommand();
 
-    RedisKey key = command.getKey();
+//    RedisKey key = command.getKey();
 
-    RedisHashCommands redisHashCommands = context.getRedisHashCommands();
+//    final RedisHashCommands redisHashCommands = context.getRedisHashCommands();
 
-    List<byte[]> fieldsToSet = commandElems.subList(2, commandElems.size());
-    int fieldsAdded = redisHashCommands.hset(key, fieldsToSet, onlySetOnAbsent());
+//    List<byte[]> fieldsToSet = commandElems.subList(2, commandElems.size());
+//    int fieldsAdded = redisHashCommands.hset(key, fieldsToSet, onlySetOnAbsent());
 
-    return RedisResponse.integer(fieldsAdded);
+    return RedisResponse.integer(0);
   }
 
   protected boolean onlySetOnAbsent() {
