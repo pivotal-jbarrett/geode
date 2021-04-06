@@ -2505,15 +2505,21 @@ public class BucketRegion extends DistributedRegion implements Bucket {
     return super.hasSeenEvent(event);
   }
 
-  // bug 41289 - wait for event tracker to be initialized before checkin
-  // so that an operation intended for a previous version of a bucket
-  // is not prematurely applied to a new version of the bucket
+  private boolean eventTrackerIsInitialized = false;
+
+  /** wait for event tracker to be initialized before checkin
+   * so that an operation intended for a previous version of a bucket
+   * is not prematurely applied to a new version of the bucket
+   */
   private void ensureEventTrackerInitialization() {
-    try {
-      getEventTracker().waitOnInitialization();
-    } catch (InterruptedException ie) {
-      getCancelCriterion().checkCancelInProgress(ie);
-      Thread.currentThread().interrupt();
+    if (!eventTrackerIsInitialized) {
+      try {
+        getEventTracker().waitOnInitialization();
+      } catch (InterruptedException ie) {
+        getCancelCriterion().checkCancelInProgress(ie);
+        Thread.currentThread().interrupt();
+      }
+      eventTrackerIsInitialized = getEventTracker().isInitialized();
     }
   }
 
