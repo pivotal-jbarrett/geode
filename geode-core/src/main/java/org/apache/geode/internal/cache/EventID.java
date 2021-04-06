@@ -378,6 +378,7 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
     writeOptimizedByteArrayForEventID(threadID, sequenceID, dop);
     dop.writeInt(this.bucketID);
     dop.writeByte(this.breadcrumbCounter);
+    dop.write(hashCode);
   }
 
   public void toDataPre_GFE_8_0_0_0(DataOutput dop, SerializationContext context)
@@ -396,6 +397,7 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
     this.sequenceID = readEventIdPartsFromOptmizedByteArray(eventIdParts);
     this.bucketID = di.readInt();
     this.breadcrumbCounter = di.readByte();
+    this.hashCode = di.readInt();
   }
 
   public void fromDataPre_GFE_8_0_0_0(DataInput di, DeserializationContext context)
