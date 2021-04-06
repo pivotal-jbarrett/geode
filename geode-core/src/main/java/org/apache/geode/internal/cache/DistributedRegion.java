@@ -99,6 +99,7 @@ import org.apache.geode.internal.cache.control.InternalResourceManager.ResourceT
 import org.apache.geode.internal.cache.control.MemoryEvent;
 import org.apache.geode.internal.cache.event.DistributedEventTracker;
 import org.apache.geode.internal.cache.event.EventTracker;
+import org.apache.geode.internal.cache.event.NonDistributedEventTracker;
 import org.apache.geode.internal.cache.eviction.EvictableEntry;
 import org.apache.geode.internal.cache.execute.DistributedRegionFunctionExecutor;
 import org.apache.geode.internal.cache.execute.DistributedRegionFunctionResultSender;
@@ -280,9 +281,7 @@ public class DistributedRegion extends LocalRegion implements InternalDistribute
 
   @Override
   protected EventTracker createEventTracker() {
-    EventTracker tracker = new DistributedEventTracker(cache, getCancelCriterion(), getName());
-    tracker.start();
-    return tracker;
+    return NonDistributedEventTracker.getInstance();
   }
 
   /**
