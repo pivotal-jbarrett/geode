@@ -524,19 +524,16 @@ public class DistributedRegion extends LocalRegion implements InternalDistribute
 
   @Override
   public boolean hasSeenEvent(EntryEventImpl event) {
-    boolean isDuplicate;
-
-    isDuplicate = getEventTracker().hasSeenEvent(event);
+    final boolean isDuplicate = getEventTracker().hasSeenEvent(event);
     if (isDuplicate) {
       markEventAsDuplicate(event);
     } else {
-      // bug #48205 - a retried PR operation may already have a version assigned to it
+      // a retried PR operation may already have a version assigned to it
       // in another VM
       if (event.isPossibleDuplicate() && event.getRegion().getConcurrencyChecksEnabled()
           && event.getVersionTag() == null && event.getEventId() != null) {
-        boolean isBulkOp = event.getOperation().isPutAll() || event.getOperation().isRemoveAll();
-        VersionTag tag =
-            FindVersionTagOperation.findVersionTag(event.getRegion(), event.getEventId(), isBulkOp);
+        final boolean isBulkOp = event.getOperation().isPutAll() || event.getOperation().isRemoveAll();
+        final VersionTag<?> tag = FindVersionTagOperation.findVersionTag(event.getRegion(), event.getEventId(), isBulkOp);
         event.setVersionTag(tag);
       }
     }
