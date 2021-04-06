@@ -352,7 +352,7 @@ public abstract class DistributedCacheOperation {
       if (null != bucketRegion) {
         twoMessages = bucketRegion.getBucketAdvisor().adviseRequiresTwoMessages();
         filterRouting = getRecipientFilterRouting(unmodifiableRecipients);
-        if (filterRouting != null && debugEnabled) {
+        if (debugEnabled && filterRouting != null) {
           logger.debug("Computed this filter routing: {}", filterRouting);
         }
       } else {
@@ -378,11 +378,11 @@ public abstract class DistributedCacheOperation {
 
       if (modifiableRecipients.isEmpty() && adjunctRecipients.isEmpty() && needsOldValueInCacheOp.isEmpty()
           && cachelessNodes.isEmpty()) {
-        distributeNoRecipients(region, bucketRegion, filterRouting);
+        distributeNoRecipients(region, bucketRegion, filterRouting, debugEnabled);
       } else {
         distributeWithRecipients(region, filterRouting, bucketRegion, modifiableRecipients,
             adjunctRecipients, cachelessNodes, needsOldValueInCacheOp,
-            cachelessNodesWithNoCacheServer, persistentIds, entryEvent
+            cachelessNodesWithNoCacheServer, persistentIds, entryEvent, debugEnabled
         );
       }
 
@@ -413,7 +413,8 @@ public abstract class DistributedCacheOperation {
                                         final Set<InternalDistributedMember> needsOldValueInCacheOp,
                                         final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer,
                                         final Map<InternalDistributedMember, PersistentMemberID> persistentIds,
-                                        final EntryEventImpl entryEvent) {
+                                        final EntryEventImpl entryEvent,
+  final boolean debugEnabled) {
 
     final InternalDistributedSystem distributedSystem = region.getSystem();
 
@@ -432,7 +433,7 @@ public abstract class DistributedCacheOperation {
       }
     }
 
-    if (logger.isDebugEnabled()) {
+    if (debugEnabled) {
       logger.debug("recipients for {}: {} with adjunct messages to: {}", this, modifiableRecipients,
           adjunctRecipients);
     }
@@ -456,13 +457,13 @@ public abstract class DistributedCacheOperation {
     msg.setMulticast(useMulticast);
     msg.directAck = shouldAck && supportsDirectAck() && adjunctRecipients.isEmpty() && distributedSystem.threadOwnsResources();
 
-    configureFilterRouting(msg, bucketRegion, isRemoveAll, isPutAll, filterRouting);
+    configureFilterRouting(msg, bucketRegion, isRemoveAll, isPutAll, filterRouting, debugEnabled);
 
     initProcessor(processor, msg);
 
     checkCacheNotClosed(region);
 
-    final Set<InternalDistributedMember> failures = distributeToMembers(region, modifiableRecipients, cachelessNodes, needsOldValueInCacheOp, cachelessNodesWithNoCacheServer, msg);
+    final Set<InternalDistributedMember> failures = distributeToMembers(region, modifiableRecipients, cachelessNodes, needsOldValueInCacheOp, cachelessNodesWithNoCacheServer, msg, debugEnabled);
 
     sendPartitionedRegionListenerNotifications(bucketRegion, filterRouting,
         modifiableRecipients, adjunctRecipients, cachelessNodes, isPutAll, isRemoveAll);
@@ -481,14 +482,14 @@ public abstract class DistributedCacheOperation {
       final Set<InternalDistributedMember> cachelessNodes,
       final Set<InternalDistributedMember> needsOldValueInCacheOp,
       final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer,
-      final CacheOperationMessage msg) {
+      final CacheOperationMessage msg, final boolean debugEnabled) {
     final DistributionManager distributionManager = region.getDistributionManager();
 
     Set<InternalDistributedMember> failures = distributeToMembers(modifiableRecipients, msg, distributionManager);
-    failures = distributeToMembersNeedingOldValue(needsOldValueInCacheOp, msg, distributionManager, failures);
+    failures = distributeToMembersNeedingOldValue(needsOldValueInCacheOp, msg, distributionManager, failures, debugEnabled);
     failures = distributeToCachelessNodes(cachelessNodes, cachelessNodesWithNoCacheServer, msg, distributionManager, failures);
 
-    if (failures != null && !failures.isEmpty() && logger.isDebugEnabled()) {
+    if (failures != null && !failures.isEmpty() && debugEnabled) {
       logger.debug("Failed sending ({}) to {} while processing event:{}", msg, failures, event);
     }
 
@@ -642,13 +643,13 @@ public abstract class DistributedCacheOperation {
 
   private Set<InternalDistributedMember> distributeToMembersNeedingOldValue(
       final Set<InternalDistributedMember> needsOldValueInCacheOp, final CacheOperationMessage msg,
-      final DistributionManager distributionManager, Set<InternalDistributedMember> failures) {
+      final DistributionManager distributionManager, Set<InternalDistributedMember> failures, final boolean debugEnabled) {
     if (!needsOldValueInCacheOp.isEmpty()) {
       msg.appendOldValueToMessage((EntryEventImpl) event);
       msg.resetRecipients();
       final Set<InternalDistributedMember> newFailures = distributeToMembers(needsOldValueInCacheOp, msg, distributionManager);
       if (newFailures != null) {
-        if (logger.isDebugEnabled()) {
+        if (debugEnabled) {
           logger.debug("Failed sending ({}) to {}", msg, newFailures);
         }
         failures = addAllOrSet(failures, newFailures);
@@ -683,10 +684,10 @@ public abstract class DistributedCacheOperation {
                                       final BucketRegion bucketRegion,
                                       final boolean isRemoveAll,
                                       final boolean isPutAll,
-                                      final FilterRoutingInfo filterRouting) {
+                                      final FilterRoutingInfo filterRouting, final boolean debugEnabled) {
     if (null != bucketRegion) {
       if (!isPutAll && !isRemoveAll && hasMemberWithFilterInfo(filterRouting)) {
-        if (logger.isDebugEnabled()) {
+        if (debugEnabled) {
           logger.debug("Setting filter information for message to {}", filterRouting);
         }
         msg.filterRouting = filterRouting;
@@ -775,9 +776,9 @@ public abstract class DistributedCacheOperation {
   }
 
   private void distributeNoRecipients(final DistributedRegion region, final BucketRegion bucketRegion,
-                         final FilterRoutingInfo filterRouting) {
+                         final FilterRoutingInfo filterRouting, final boolean debugEnabled) {
     if (region.isInternalRegion()) {
-      if (logger.isDebugEnabled() || logger.isTraceEnabled()) {
+      if (debugEnabled || logger.isTraceEnabled()) {
         if (region.getDistributionManager().getNormalDistributionManagerIds().size() > 1) {
           // suppress this msg if we are the only member.
           if (logger.isTraceEnabled()) {
@@ -785,7 +786,7 @@ public abstract class DistributedCacheOperation {
           }
         } else {
           // suppress this msg if we are the only member.
-          if (logger.isDebugEnabled()) {
+          if (debugEnabled) {
             logger.debug("<No Recipients> {}", this);
           }
         }
