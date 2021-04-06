@@ -496,7 +496,7 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
     return hashCode(memberID, memberID.length - NULL_90_MEMBER_DATA_LENGTH);
   }
 
-  public static int hashCode(final byte a[], final int length) {
+  private static int hashCode(final byte a[], final int length) {
     if (a == null)
       return 0;
 
