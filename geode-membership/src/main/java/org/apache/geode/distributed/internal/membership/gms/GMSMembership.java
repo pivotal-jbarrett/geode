@@ -1522,12 +1522,7 @@ public class GMSMembership<ID extends MemberIdentifier> implements Membership<ID
   }
 
   private boolean isShunnedOrNew(final ID m) {
-    latestViewReadLock.lock();
-    try {
-      return shunnedMembers.containsKey(m) || isNew(m);
-    } finally { // synchronized
-      latestViewReadLock.unlock();
-    }
+    return shunnedMembers.containsKey(m) || isNew(m);
   }
 
   // must be invoked under view read or write lock
@@ -1550,17 +1545,12 @@ public class GMSMembership<ID extends MemberIdentifier> implements Membership<ID
    */
   @Override
   public boolean isSurpriseMember(ID m) {
-    latestViewReadLock.lock();
-    try {
       if (surpriseMembers.containsKey(m)) {
         long birthTime = surpriseMembers.get(m).longValue();
         long now = System.currentTimeMillis();
         return (birthTime >= (now - this.surpriseMemberTimeout));
       }
       return false;
-    } finally {
-      latestViewReadLock.unlock();
-    }
   }
 
   /**
