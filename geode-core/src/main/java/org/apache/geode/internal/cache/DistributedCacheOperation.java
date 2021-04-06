@@ -359,6 +359,10 @@ public abstract class DistributedCacheOperation {
         twoMessages = emptySet();
         filterRouting = null;
       }
+
+      logger.info("twoMessages={}", twoMessages);
+      logger.info("filterRouting={}", filterRouting);
+
 //      logger.info("unmodifiableRecipients={}", unmodifiableRecipients);
 
 //      final Set<InternalDistributedMember> adjunctRecipients = getAdjunctRecipients(bucketRegion, unmodifiableRecipients,
@@ -422,12 +426,12 @@ public abstract class DistributedCacheOperation {
                                         final Map<InternalDistributedMember, PersistentMemberID> persistentIds,
                                         final EntryEventImpl entryEvent,
   final boolean debugEnabled) {
-    logger.info("distributeWithRecipients: modifiableRecipients={}", modifiableRecipients);
-    logger.info("distributeWithRecipients: adjunctRecipients={}", adjunctRecipients);
-    logger.info("distributeWithRecipients: cachelessNodes={}", cachelessNodes);
-    logger.info("distributeWithRecipients: adjunctRecipients={}", adjunctRecipients);
-    logger.info("distributeWithRecipients: needsOldValueInCacheOp={}", needsOldValueInCacheOp);
-    logger.info("distributeWithRecipients: cachelessNodesWithNoCacheServer={}", cachelessNodesWithNoCacheServer);
+//    logger.info("distributeWithRecipients: modifiableRecipients={}", modifiableRecipients);
+//    logger.info("distributeWithRecipients: adjunctRecipients={}", adjunctRecipients);
+//    logger.info("distributeWithRecipients: cachelessNodes={}", cachelessNodes);
+//    logger.info("distributeWithRecipients: adjunctRecipients={}", adjunctRecipients);
+//    logger.info("distributeWithRecipients: needsOldValueInCacheOp={}", needsOldValueInCacheOp);
+//    logger.info("distributeWithRecipients: cachelessNodesWithNoCacheServer={}", cachelessNodesWithNoCacheServer);
 
     final InternalDistributedSystem distributedSystem = region.getSystem();
 
