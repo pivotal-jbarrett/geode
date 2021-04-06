@@ -368,6 +368,7 @@ public abstract class DistributedCacheOperation {
       final Set<InternalDistributedMember> needsOldValueInCacheOp = getNeedsOldValueInCacheOp(cacheDistributionAdvisor, unmodifiableRecipients, entryEvent);
       // TODO jabarrett - cleanup copy and remove.
       Set<InternalDistributedMember> modifiableRecipients = new HashSet<>(unmodifiableRecipients);
+      logger.info("modifiableRecipients={}", modifiableRecipients);
       modifiableRecipients.removeAll(needsOldValueInCacheOp);
 
       final Set<InternalDistributedMember> cachelessNodes = getCachelessNodes(region, cacheDistributionAdvisor);
@@ -489,7 +490,7 @@ public abstract class DistributedCacheOperation {
     failures = distributeToMembersNeedingOldValue(needsOldValueInCacheOp, msg, distributionManager, failures, debugEnabled);
     failures = distributeToCachelessNodes(cachelessNodes, cachelessNodesWithNoCacheServer, msg, distributionManager, failures);
 
-    if (failures != null && !failures.isEmpty() && debugEnabled) {
+    if (debugEnabled && failures != null && !failures.isEmpty()) {
       logger.debug("Failed sending ({}) to {} while processing event:{}", msg, failures, event);
     }
 
