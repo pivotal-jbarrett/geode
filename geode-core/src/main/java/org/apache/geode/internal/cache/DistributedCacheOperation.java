@@ -348,20 +348,20 @@ public abstract class DistributedCacheOperation {
       // set client routing information into the event
       final FilterRoutingInfo filterRouting;
       // recipients that will get a cacheop msg and also a PR message
-      final Set<InternalDistributedMember> twoMessages;
+//      final Set<InternalDistributedMember> twoMessages;
       if (null != bucketRegion) {
-        twoMessages = bucketRegion.getBucketAdvisor().adviseRequiresTwoMessages();
+//        twoMessages = bucketRegion.getBucketAdvisor().adviseRequiresTwoMessages();
         filterRouting = getRecipientFilterRouting(unmodifiableRecipients);
         if (debugEnabled && filterRouting != null) {
           logger.debug("Computed this filter routing: {}", filterRouting);
         }
       } else {
-        twoMessages = emptySet();
+//        twoMessages = emptySet();
         filterRouting = null;
       }
 
-      logger.info("twoMessages={}", twoMessages);
-      logger.info("filterRouting={}", filterRouting);
+//      logger.info("twoMessages={}", twoMessages);
+//      logger.info("filterRouting={}", filterRouting);
 
 //      logger.info("unmodifiableRecipients={}", unmodifiableRecipients);
 
