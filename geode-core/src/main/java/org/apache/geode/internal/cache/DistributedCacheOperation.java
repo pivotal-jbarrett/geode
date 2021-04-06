@@ -359,37 +359,37 @@ public abstract class DistributedCacheOperation {
         twoMessages = emptySet();
         filterRouting = null;
       }
-      logger.info("unmodifiableRecipients={}", unmodifiableRecipients);
+//      logger.info("unmodifiableRecipients={}", unmodifiableRecipients);
 
-      final Set<InternalDistributedMember> adjunctRecipients = getAdjunctRecipients(bucketRegion, unmodifiableRecipients,
-              filterRouting, twoMessages);
-      logger.info("adjunctRecipients={}", adjunctRecipients);
+//      final Set<InternalDistributedMember> adjunctRecipients = getAdjunctRecipients(bucketRegion, unmodifiableRecipients,
+//              filterRouting, twoMessages);
+//      logger.info("adjunctRecipients={}", adjunctRecipients);
 
       final EntryEventImpl entryEvent = event.getOperation().isEntry() ? getEvent() : null;
 
-      final Set<InternalDistributedMember> needsOldValueInCacheOp = getNeedsOldValueInCacheOp(cacheDistributionAdvisor, unmodifiableRecipients, entryEvent);
-      logger.info("needsOldValueInCacheOp={}", needsOldValueInCacheOp);
-      // TODO jabarrett - cleanup copy and remove.
-      Set<InternalDistributedMember> modifiableRecipients = new HashSet<>(unmodifiableRecipients);
-      modifiableRecipients.removeAll(needsOldValueInCacheOp);
-      logger.info("modifiableRecipients={}", modifiableRecipients);
+//      final Set<InternalDistributedMember> needsOldValueInCacheOp = getNeedsOldValueInCacheOp(cacheDistributionAdvisor, unmodifiableRecipients, entryEvent);
+//      logger.info("needsOldValueInCacheOp={}", needsOldValueInCacheOp);
+//      // TODO jabarrett - cleanup copy and remove.
+//      Set<InternalDistributedMember> modifiableRecipients = new HashSet<>(unmodifiableRecipients);
+//      modifiableRecipients.removeAll(needsOldValueInCacheOp);
+//      logger.info("modifiableRecipients={}", modifiableRecipients);
 
-      final Set<InternalDistributedMember> cachelessNodes = getCachelessNodes(region, cacheDistributionAdvisor);
-      logger.info("getCachelessNodes: cachelessNodes={}", cachelessNodes);
+//      final Set<InternalDistributedMember> cachelessNodes = getCachelessNodes(region, cacheDistributionAdvisor);
+//      logger.info("getCachelessNodes: cachelessNodes={}", cachelessNodes);
+//
+//      adjustRecipientsAndCachelessNodes(adjunctRecipients, modifiableRecipients, cachelessNodes);
+//      logger.info("adjustRecipientsAndCachelessNodes: modifiableRecipients={}", modifiableRecipients);
+//      logger.info("adjustRecipientsAndCachelessNodes: cachelessNodes={}", cachelessNodes);
 
-      adjustRecipientsAndCachelessNodes(adjunctRecipients, modifiableRecipients, cachelessNodes);
-      logger.info("adjustRecipientsAndCachelessNodes: modifiableRecipients={}", modifiableRecipients);
-      logger.info("adjustRecipientsAndCachelessNodes: cachelessNodes={}", cachelessNodes);
+//      final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer = getCachelessNodesWithNoCacheServer(cacheDistributionAdvisor, cachelessNodes);
 
-      final Set<InternalDistributedMember> cachelessNodesWithNoCacheServer = getCachelessNodesWithNoCacheServer(cacheDistributionAdvisor, cachelessNodes);
-
-      if (modifiableRecipients.isEmpty() && adjunctRecipients.isEmpty() && needsOldValueInCacheOp.isEmpty()
-          && cachelessNodes.isEmpty()) {
+      if (unmodifiableRecipients.isEmpty() /* && adjunctRecipients.isEmpty() && needsOldValueInCacheOp.isEmpty()
+          && cachelessNodes.isEmpty() */) {
         distributeNoRecipients(region, bucketRegion, filterRouting, debugEnabled);
       } else {
-        distributeWithRecipients(region, filterRouting, bucketRegion, modifiableRecipients,
-            adjunctRecipients, cachelessNodes, needsOldValueInCacheOp,
-            cachelessNodesWithNoCacheServer, persistentIds, entryEvent, debugEnabled
+        distributeWithRecipients(region, filterRouting, bucketRegion, unmodifiableRecipients,
+            emptySet(), emptySet(), emptySet(),
+            emptySet(), persistentIds, entryEvent, debugEnabled
         );
       }
 
