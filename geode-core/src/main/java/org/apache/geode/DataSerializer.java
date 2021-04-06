@@ -2857,7 +2857,7 @@ public abstract class DataSerializer {
    *         found
    *
    * @see #writeObject(Object, DataOutput)
-   * @see ObjectInputStream#readObject
+   * @see ObjectInputStream#readObject()
    */
   @SuppressWarnings("unchecked")
   public static <T> T readObject(final DataInput in) throws IOException, ClassNotFoundException {
@@ -3041,7 +3041,7 @@ public abstract class DataSerializer {
    * maps a class to its enum constants.
    */
   @MakeNotStatic
-  private static final ConcurrentMap<Class<? extends Enum>, Enum[]> knownEnums =
+  private static final ConcurrentMap<Class<? extends Enum<?>>, Enum<?>[]> knownEnums =
       new ConcurrentHashMap<>();
 
   /**
@@ -3051,7 +3051,7 @@ public abstract class DataSerializer {
    * @return enum constants for the given class
    */
   @SuppressWarnings("unchecked")
-  private static <E extends Enum> E[] getEnumConstantsForClass(Class<E> clazz) {
+  private static <E extends Enum<E>> E[] getEnumConstantsForClass(Class<E> clazz) {
     E[] returnVal = (E[]) knownEnums.get(clazz);
     if (returnVal == null) {
       returnVal = clazz.getEnumConstants();
