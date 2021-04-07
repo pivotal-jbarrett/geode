@@ -135,11 +135,11 @@ public class ExecutionHandlerContext extends ChannelInboundHandlerAdapter {
   }
 
   public ChannelFuture writeToChannel(RedisResponse response) {
-    return channel.writeAndFlush(response.encode(byteBufAllocator), channel.newPromise())
-        .addListener((ChannelFutureListener) f -> {
-          response.afterWrite();
-          logResponse(response, channel.remoteAddress(), f.cause());
-        });
+    return channel.writeAndFlush(response.encode(byteBufAllocator));
+  }
+
+  public ChannelFuture writeToChannel(final ByteBuf response) {
+    return channel.writeAndFlush(response);
   }
 
   private void processCommandQueue() {
@@ -286,6 +286,11 @@ public class ExecutionHandlerContext extends ChannelInboundHandlerAdapter {
       if (logger.isDebugEnabled()) {
         logger.debug("Executing Redis command: {} - {}", command,
             channel.remoteAddress().toString());
+      }
+
+      if (command.isOfType(RedisCommandType.HSET)) {
+        writeToChannel(command.execute2(this));
+        return;
       }
 
       if (command.isUnknown()) {

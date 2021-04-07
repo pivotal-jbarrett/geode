@@ -16,6 +16,8 @@
 package org.apache.geode.redis.internal.executor;
 
 
+import io.netty.buffer.ByteBuf;
+
 import org.apache.geode.redis.internal.netty.Command;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -32,4 +34,9 @@ public interface Executor {
    * @param context The execution context by which this command is to be executed
    */
   RedisResponse executeCommand(Command command, ExecutionHandlerContext context);
+
+  default ByteBuf executeCommand2(Command command, ExecutionHandlerContext context) {
+    throw new UnsupportedOperationException();
+  }
+
 }

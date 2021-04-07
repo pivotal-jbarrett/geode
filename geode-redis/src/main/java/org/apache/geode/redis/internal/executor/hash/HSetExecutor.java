@@ -16,8 +16,12 @@ package org.apache.geode.redis.internal.executor.hash;
 
 import java.util.List;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+
 import org.apache.geode.redis.internal.data.RedisKey;
 import org.apache.geode.redis.internal.executor.RedisResponse;
+import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -50,7 +54,14 @@ public class HSetExecutor extends HashExecutor {
 //    List<byte[]> fieldsToSet = commandElems.subList(2, commandElems.size());
 //    int fieldsAdded = redisHashCommands.hset(key, fieldsToSet, onlySetOnAbsent());
 
-    return RedisResponse.integer(0);
+//    return RedisResponse.integer(0);
+
+    throw new IllegalStateException();
+  }
+
+  @Override
+  public ByteBuf executeCommand2(final Command command, final ExecutionHandlerContext context) {
+    return Coder.getIntegerResponse(context.getByteBufAllocator().buffer(), 0);
   }
 
   protected boolean onlySetOnAbsent() {

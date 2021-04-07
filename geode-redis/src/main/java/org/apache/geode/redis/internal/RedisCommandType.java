@@ -21,6 +21,8 @@ import static org.apache.geode.redis.internal.RedisCommandSupportLevel.UNIMPLEME
 import static org.apache.geode.redis.internal.RedisCommandSupportLevel.UNSUPPORTED;
 import static org.apache.geode.redis.internal.RedisConstants.ERROR_SYNTAX;
 
+import io.netty.buffer.ByteBuf;
+
 import org.apache.geode.redis.internal.ParameterRequirements.EvenParameterRequirements;
 import org.apache.geode.redis.internal.ParameterRequirements.ExactParameterRequirements;
 import org.apache.geode.redis.internal.ParameterRequirements.MaximumParameterRequirements;
@@ -471,4 +473,13 @@ public enum RedisCommandType {
 
     return executor.executeCommand(command, executionHandlerContext);
   }
+
+  public ByteBuf executeCommand2(Command command,
+                                 ExecutionHandlerContext executionHandlerContext) {
+
+    parameterRequirements.checkParameters(command, executionHandlerContext);
+
+    return executor.executeCommand2(command, executionHandlerContext);
+  }
+
 }

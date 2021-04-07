@@ -19,6 +19,7 @@ import java.nio.channels.SocketChannel;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 
 import org.apache.geode.redis.internal.RedisCommandType;
@@ -190,6 +191,11 @@ public class Command {
   public RedisResponse execute(ExecutionHandlerContext executionHandlerContext) {
     RedisCommandType type = getCommandType();
     return type.executeCommand(this, executionHandlerContext);
+  }
+
+  public ByteBuf execute2(ExecutionHandlerContext executionHandlerContext) {
+    RedisCommandType type = getCommandType();
+    return type.executeCommand2(this, executionHandlerContext);
   }
 
   public boolean isOfType(RedisCommandType type) {

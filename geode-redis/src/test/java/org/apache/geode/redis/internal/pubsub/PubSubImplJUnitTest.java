@@ -29,6 +29,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.junit.Test;
 
+import org.apache.geode.redis.internal.executor.RedisResponse;
 import org.apache.geode.redis.internal.netty.Client;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -41,7 +42,7 @@ public class PubSubImplJUnitTest {
     ExecutionHandlerContext mockContext = mock(ExecutionHandlerContext.class);
 
     FailingChannelFuture mockFuture = new FailingChannelFuture();
-    when(mockContext.writeToChannel(any())).thenReturn(mockFuture);
+    when(mockContext.writeToChannel(any(RedisResponse.class))).thenReturn(mockFuture);
 
     Client deadClient = mock(Client.class);
     when(deadClient.isDead()).thenReturn(true);
