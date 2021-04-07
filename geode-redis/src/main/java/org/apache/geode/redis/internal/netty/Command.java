@@ -62,8 +62,8 @@ public class Command {
     RedisCommandType type;
     try {
       byte[] charCommand = commandElems.get(0);
-      String commandName = Coder.bytesToString(charCommand).toUpperCase();
-      type = RedisCommandType.valueOf(commandName);
+      //String commandName = Coder.bytesToString(charCommand).toUpperCase();
+      type = RedisCommandType.valueOf(charCommand);
     } catch (Exception e) {
       type = RedisCommandType.UNKNOWN;
     }

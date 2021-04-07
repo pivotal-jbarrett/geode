@@ -121,6 +121,7 @@ import org.apache.geode.redis.internal.executor.string.SetExecutor;
 import org.apache.geode.redis.internal.executor.string.SetNXExecutor;
 import org.apache.geode.redis.internal.executor.string.SetRangeExecutor;
 import org.apache.geode.redis.internal.executor.string.StrlenExecutor;
+import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -425,6 +426,20 @@ public enum RedisCommandType {
     this.supportLevel = supportLevel;
     this.parameterRequirements = parameterRequirements;
     this.deferredParameterRequirements = deferredParameterRequirements;
+  }
+
+  public static RedisCommandType valueOf(final byte[] asciiString) {
+    if ('H' == asciiString[0] || 'h' == asciiString[0]) {
+      if ('S' == asciiString[1] || 's' == asciiString[1]) {
+        if ('E' == asciiString[2] || 'e' == asciiString[2]) {
+          if ('T' == asciiString[3] || 't' == asciiString[3]) {
+            return HSET;
+          }
+        }
+      }
+    }
+
+    return valueOf(Coder.bytesToString(asciiString));
   }
 
   public boolean isSupported() {
