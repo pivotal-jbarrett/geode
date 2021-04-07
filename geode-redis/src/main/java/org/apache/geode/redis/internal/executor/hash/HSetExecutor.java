@@ -61,7 +61,9 @@ public class HSetExecutor extends HashExecutor {
 
   @Override
   public ByteBuf executeCommand2(final Command command, final ExecutionHandlerContext context) {
-    return Coder.getIntegerResponse(context.getByteBufAllocator().buffer(), 0);
+    final ByteBuf buffer = context.getByteBufAllocator().buffer();
+    return buffer.writeByte(Coder.INTEGER_ID).writeByte(48).writeBytes(Coder.CRLFar);
+//    return Coder.getIntegerResponse(context.getByteBufAllocator().buffer(), 0);
   }
 
   protected boolean onlySetOnAbsent() {
