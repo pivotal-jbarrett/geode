@@ -15,11 +15,12 @@
 package org.apache.geode.redis.internal.executor.hash;
 
 import java.util.List;
+import java.util.Map;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
+import it.unimi.dsi.fastutil.bytes.ByteArrays;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap;
 
-import org.apache.geode.redis.internal.data.RedisKey;
 import org.apache.geode.redis.internal.executor.RedisResponse;
 import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
@@ -42,28 +43,36 @@ import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
  */
 public class HSetExecutor extends HashExecutor {
 
+  static final Map<byte[], Map<byte[], byte[]>> data = new Object2ObjectOpenCustomHashMap<>(ByteArrays.HASH_STRATEGY);
+
   @Override
   public RedisResponse executeCommand(Command command,
       ExecutionHandlerContext context) {
-//    List<byte[]> commandElems = command.getProcessedCommand();
-
-//    RedisKey key = command.getKey();
-
-//    final RedisHashCommands redisHashCommands = context.getRedisHashCommands();
-
-//    List<byte[]> fieldsToSet = commandElems.subList(2, commandElems.size());
-//    int fieldsAdded = redisHashCommands.hset(key, fieldsToSet, onlySetOnAbsent());
-
-//    return RedisResponse.integer(0);
-
     throw new IllegalStateException();
   }
 
   @Override
   public ByteBuf executeCommand2(final Command command, final ExecutionHandlerContext context) {
+    // TODO keep as ByteBuf
+    final List<byte[]> commandElems = command.getProcessedCommand();
+    final int size = commandElems.size();
+
+    final byte[] key = commandElems.get(1);
+
+    Map<byte[], byte[]> hash = data.get(key);
+
+    if (null == hash) {
+      hash = new Object2ObjectOpenCustomHashMap<>((size-2) / 2, ByteArrays.HASH_STRATEGY);
+      data.put(key, hash);
+    }
+
+    for (int i = 2; i < size;) {
+      hash.put(commandElems.get(i++), commandElems.get(i++));
+    }
+
+    // TODO correct return value
     final ByteBuf buffer = context.getByteBufAllocator().buffer();
     return buffer.writeByte(Coder.INTEGER_ID).writeByte(48).writeBytes(Coder.CRLFar);
-//    return Coder.getIntegerResponse(context.getByteBufAllocator().buffer(), 0);
   }
 
   protected boolean onlySetOnAbsent() {
