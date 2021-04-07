@@ -21,7 +21,10 @@ import static org.apache.geode.redis.internal.RedisCommandSupportLevel.UNIMPLEME
 import static org.apache.geode.redis.internal.RedisCommandSupportLevel.UNSUPPORTED;
 import static org.apache.geode.redis.internal.RedisConstants.ERROR_SYNTAX;
 
+import java.nio.charset.StandardCharsets;
+
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 
 import org.apache.geode.redis.internal.ParameterRequirements.EvenParameterRequirements;
 import org.apache.geode.redis.internal.ParameterRequirements.ExactParameterRequirements;
@@ -428,18 +431,22 @@ public enum RedisCommandType {
     this.deferredParameterRequirements = deferredParameterRequirements;
   }
 
-  public static RedisCommandType valueOf(final byte[] asciiString) {
-    if ('H' == asciiString[0] || 'h' == asciiString[0]) {
-      if ('S' == asciiString[1] || 's' == asciiString[1]) {
-        if ('E' == asciiString[2] || 'e' == asciiString[2]) {
-          if ('T' == asciiString[3] || 't' == asciiString[3]) {
+  public static RedisCommandType valueOf(final ByteBuf asciiString) {
+    byte c = asciiString.getByte(0);
+    if ('H' == c || 'h' == c) {
+      c = asciiString.getByte(1);
+      if ('S' == c || 's' == c) {
+        c = asciiString.getByte(2);
+        if ('E' == c || 'e' == c) {
+          c = asciiString.getByte(3);
+          if ('T' == c || 't' == c) {
             return HSET;
           }
         }
       }
     }
 
-    return valueOf(Coder.bytesToString(asciiString));
+    return valueOf(asciiString.toString(StandardCharsets.UTF_8).toUpperCase());
   }
 
   public boolean isSupported() {
@@ -492,7 +499,8 @@ public enum RedisCommandType {
   public ByteBuf executeCommand2(Command command,
                                  ExecutionHandlerContext executionHandlerContext) {
 
-    parameterRequirements.checkParameters(command, executionHandlerContext);
+    // TODO jabarrett - check the parts.
+//    parameterRequirements.checkParameters(command, executionHandlerContext);
 
     return executor.executeCommand2(command, executionHandlerContext);
   }

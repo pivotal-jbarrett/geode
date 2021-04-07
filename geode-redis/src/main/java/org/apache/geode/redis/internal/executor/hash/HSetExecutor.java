@@ -14,12 +14,15 @@
  */
 package org.apache.geode.redis.internal.executor.hash;
 
+import static io.netty.buffer.Unpooled.copiedBuffer;
+
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 import io.netty.buffer.ByteBuf;
-import it.unimi.dsi.fastutil.bytes.ByteArrays;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
 import org.apache.geode.redis.internal.executor.RedisResponse;
 import org.apache.geode.redis.internal.netty.Coder;
@@ -43,7 +46,7 @@ import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
  */
 public class HSetExecutor extends HashExecutor {
 
-  static final Map<byte[], Map<byte[], byte[]>> data = new Object2ObjectOpenCustomHashMap<>(ByteArrays.HASH_STRATEGY);
+  static final Map<ByteBuf, Map<ByteBuf, byte[]>> data = new HashMap<>();
 
   @Override
   public RedisResponse executeCommand(Command command,
@@ -53,26 +56,35 @@ public class HSetExecutor extends HashExecutor {
 
   @Override
   public ByteBuf executeCommand2(final Command command, final ExecutionHandlerContext context) {
-    // TODO keep as ByteBuf
-    final List<byte[]> commandElems = command.getProcessedCommand();
+    final List<ByteBuf> commandElems = command.getCommandParts();
     final int size = commandElems.size();
 
-    final byte[] key = commandElems.get(1);
+    final ByteBuf key = commandElems.get(1);
 
-    Map<byte[], byte[]> hash = data.get(key);
+    Map<ByteBuf, byte[]> hash = data.get(key);
 
     if (null == hash) {
-      hash = new Object2ObjectOpenCustomHashMap<>((size-2) / 2, ByteArrays.HASH_STRATEGY);
-      data.put(key, hash);
+      hash = new HashMap<>((size-2) / 2);
+      data.put(copiedBuffer(key), hash);
     }
 
     for (int i = 2; i < size;) {
-      hash.put(commandElems.get(i++), commandElems.get(i++));
+      final ByteBuf k = commandElems.get(i++);
+      final byte[] v = copiedArray(commandElems.get(i++));
+      if (null != hash.replace(k, v)) {
+        hash.put(copiedBuffer(k), v);
+      }
     }
 
     // TODO correct return value
     final ByteBuf buffer = context.getByteBufAllocator().buffer();
     return buffer.writeByte(Coder.INTEGER_ID).writeByte(48).writeBytes(Coder.CRLFar);
+  }
+
+  private static byte[] copiedArray(final ByteBuf buffer) {
+    final byte[] bytes = new byte[buffer.readableBytes()];
+    buffer.getBytes(0, bytes);
+    return bytes;
   }
 
   protected boolean onlySetOnAbsent() {

@@ -142,42 +142,23 @@ public class ExecutionHandlerContext extends ChannelInboundHandlerAdapter {
     return channel.writeAndFlush(response);
   }
 
-  private void processCommandQueue() {
-    while (true) {
-      Command command = takeCommandFromQueue();
-      if (command == TERMINATE_COMMAND) {
-        return;
-      }
-      try {
-        executeCommand(command);
-        redisStats.incCommandsProcessed();
-      } catch (Throwable ex) {
-        exceptionCaught(command.getChannelHandlerContext(), ex);
-      }
-    }
-  }
-
-  private Command takeCommandFromQueue() {
-    try {
-      return commandQueue.take();
-    } catch (InterruptedException e) {
-      logger.info("Command queue thread interrupted");
-      return TERMINATE_COMMAND;
-    }
-  }
-
   /**
    * This will handle the execution of received commands
    */
   @Override
   public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
     Command command = (Command) msg;
-    command.setChannelHandlerContext(ctx);
+    try {
+      command.setChannelHandlerContext(ctx);
 
-    executeCommand(command);
-    // if (!channelInactive.get()) {
-    // commandQueue.put(command);
-    // }
+      executeCommand(command);
+
+      // if (!channelInactive.get()) {
+      // commandQueue.put(command);
+      // }
+    } finally {
+      command.release();
+    }
   }
 
   /**
@@ -358,10 +339,10 @@ public class ExecutionHandlerContext extends ChannelInboundHandlerAdapter {
       ByteBuf buf = response.encode(new UnpooledByteBufAllocator(false));
       if (cause == null) {
         logger.debug("Redis command returned: {} - {}",
-            Command.getHexEncodedString(buf.array(), buf.readableBytes()), extraMessage);
+            Command.getHexEncodedString(buf, buf.readableBytes()), extraMessage);
       } else {
         logger.debug("Redis command FAILED to return: {} - {}",
-            Command.getHexEncodedString(buf.array(), buf.readableBytes()), extraMessage, cause);
+            Command.getHexEncodedString(buf, buf.readableBytes()), extraMessage, cause);
       }
     }
   }

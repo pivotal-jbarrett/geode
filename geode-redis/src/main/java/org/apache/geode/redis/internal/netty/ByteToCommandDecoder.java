@@ -74,10 +74,11 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
       bytesRead += in.readerIndex() - startReadIndex;
       out.add(c);
     } while (in.isReadable()); // Try to take advantage of pipelining if it is being used
+    
     redisStats.incNetworkBytesRead(bytesRead);
   }
 
-  private Command parse(ByteBuf buffer) throws RedisCommandParserException {
+  private static Command parse(final ByteBuf buffer) throws RedisCommandParserException {
     if (buffer == null) {
       throw new NullPointerException();
     }
@@ -85,13 +86,12 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
       return null;
     }
 
-    byte firstB = buffer.readByte();
+    final byte firstB = buffer.readByte();
     if (firstB != arrayID) {
-      throw new RedisCommandParserException(
-          "Expected: " + (char) arrayID + " Actual: " + (char) firstB);
+      throw new RedisCommandParserException("Expected: " + (char) arrayID + " Actual: " + (char) firstB);
     }
-    List<byte[]> commandElems = parseArray(buffer);
 
+    final List<ByteBuf> commandElems = parseArray(buffer);
     if (commandElems == null) {
       return null;
     }
@@ -99,9 +99,7 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
     return new Command(commandElems);
   }
 
-  private List<byte[]> parseArray(ByteBuf buffer)
-      throws RedisCommandParserException {
-    byte currentChar;
+  private static List<ByteBuf> parseArray(final ByteBuf buffer) throws RedisCommandParserException {
     int arrayLength = parseCurrentNumber(buffer);
     if (arrayLength == Integer.MIN_VALUE || !parseRN(buffer)) {
       return null;
@@ -110,15 +108,16 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
       throw new RedisCommandParserException("invalid multibulk length");
     }
 
-    List<byte[]> commandElems = new ArrayList<>(arrayLength);
+    // TODO jabarrett - just use ByteBuf[]
+    final List<ByteBuf> commandElems = new ArrayList<>(arrayLength);
 
     for (int i = 0; i < arrayLength; i++) {
       if (!buffer.isReadable()) {
         return null;
       }
-      currentChar = buffer.readByte();
+      final byte currentChar = buffer.readByte();
       if (currentChar == bulkStringID) {
-        byte[] newBulkString = parseBulkString(buffer);
+        ByteBuf newBulkString = parseBulkString(buffer);
         if (newBulkString == null) {
           return null;
         }
@@ -138,7 +137,7 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
    * @return byte[] representation of the Bulk String read
    * @throws RedisCommandParserException Thrown when there is illegal syntax
    */
-  private byte[] parseBulkString(ByteBuf buffer) throws RedisCommandParserException {
+  private static ByteBuf parseBulkString(final ByteBuf buffer) throws RedisCommandParserException {
     int bulkStringLength = parseCurrentNumber(buffer);
     if (bulkStringLength == Integer.MIN_VALUE) {
       return null;
@@ -154,8 +153,9 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
     if (!buffer.isReadable(bulkStringLength)) {
       return null;
     }
-    byte[] bulkString = new byte[bulkStringLength];
-    buffer.readBytes(bulkString);
+
+    final ByteBuf bulkString = buffer.slice(buffer.readerIndex(), bulkStringLength);
+    buffer.readerIndex(buffer.readerIndex() + bulkStringLength);
 
     if (!parseRN(buffer)) {
       return null;
@@ -170,7 +170,7 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
    * @param buffer Buffer to read
    * @return The number found at the beginning of the buffer
    */
-  private int parseCurrentNumber(ByteBuf buffer) {
+  private static int parseCurrentNumber(final ByteBuf buffer) {
     int number = 0;
     int readerIndex = buffer.readerIndex();
     byte b = 0;
@@ -196,7 +196,7 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
    * @param buffer Buffer to read from
    * @throws RedisCommandParserException Thrown when the next two characters are not "\r\n"
    */
-  private boolean parseRN(ByteBuf buffer) throws RedisCommandParserException {
+  private static boolean parseRN(final ByteBuf buffer) throws RedisCommandParserException {
     if (!buffer.isReadable(2)) {
       return false;
     }

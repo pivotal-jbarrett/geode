@@ -23,6 +23,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.junit.Test;
 
 import org.apache.geode.redis.internal.netty.Command;
@@ -243,8 +245,8 @@ public class SupportedCommandsJUnitTest {
   @Test
   public void crossCheckAllUnsupportedCommands_areMarkedUnsupported() {
     for (String commandName : unSupportedCommands) {
-      List<byte[]> args = new ArrayList<>();
-      args.add(commandName.getBytes());
+      List<ByteBuf> args = new ArrayList<>();
+      args.add(Unpooled.wrappedBuffer(commandName.getBytes()));
 
       Command command = new Command(args);
 
@@ -257,8 +259,8 @@ public class SupportedCommandsJUnitTest {
   @Test
   public void crossCheckAllSupportedCommands_areMarkedSupported() {
     for (String commandName : supportedCommands) {
-      List<byte[]> args = new ArrayList<>();
-      args.add(commandName.getBytes());
+      List<ByteBuf> args = new ArrayList<>();
+      args.add(Unpooled.wrappedBuffer(commandName.getBytes()));
 
       Command command = new Command(args);
 
@@ -271,8 +273,8 @@ public class SupportedCommandsJUnitTest {
   @Test
   public void crossCheckAllUnimplementedCommands_areMarkedUnimplemented() {
     for (String commandName : unImplementedCommands) {
-      List<byte[]> args = new ArrayList<>();
-      args.add(commandName.getBytes());
+      List<ByteBuf> args = new ArrayList<>();
+      args.add(Unpooled.wrappedBuffer(commandName.getBytes()));
 
       Command command = new Command(args);
 

@@ -22,6 +22,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import org.junit.Test;
 
 import org.apache.geode.redis.internal.RedisCommandType;
@@ -39,31 +41,37 @@ public class CommandJUnitTest {
    */
   @Test
   public void testCommand() {
-    List<byte[]> list1 = null;
+    final List<ByteBuf> list1 = null;
     assertThatThrownBy(() -> new Command(list1))
         .hasMessageContaining("List of command elements cannot be empty");
 
-    List<byte[]> list2 = new ArrayList<byte[]>();
+    final List<ByteBuf> list2 = new ArrayList<>();
 
     assertThatThrownBy(() -> new Command(list2))
         .hasMessageContaining("List of command elements cannot be empty");
 
-    List<byte[]> list3 = new ArrayList<byte[]>();
-    list3.add("Garbage".getBytes(StandardCharsets.UTF_8));
+    final List<ByteBuf> list3 = new ArrayList<>();
+    ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer();
+    buffer.writeCharSequence("Garbage", StandardCharsets.UTF_8);
+    list3.add(buffer);
 
     Command cmd = new Command(list3);
     assertThat(cmd.getCommandType()).isNotNull();
 
     assertThat(cmd.getCommandType()).isEqualTo(RedisCommandType.UNKNOWN);
     list3.clear();
-    list3.add(RedisCommandType.HEXISTS.toString().getBytes(StandardCharsets.UTF_8));
+    buffer = ByteBufAllocator.DEFAULT.buffer();
+    buffer.writeCharSequence(RedisCommandType.HEXISTS.toString(), StandardCharsets.UTF_8);
+    list3.add(buffer);
     cmd = new Command(list3);
     assertThat(cmd.getCommandType()).isNotNull();
     assertThat(cmd.getCommandType()).isEqualTo(RedisCommandType.HEXISTS);
     assertThat(cmd.getProcessedCommand()).isEqualTo(list3);
     assertThat(cmd.getKey()).isNull();
 
-    list3.add("Arg1".getBytes(StandardCharsets.UTF_8));
+    buffer = ByteBufAllocator.DEFAULT.buffer();
+    buffer.writeCharSequence("Arg1", StandardCharsets.UTF_8);
+    list3.add(buffer);
     cmd = new Command(list3);
     assertThat(cmd.getKey()).isNotNull();
     assertThat(cmd.getStringKey()).isEqualTo("Arg1");

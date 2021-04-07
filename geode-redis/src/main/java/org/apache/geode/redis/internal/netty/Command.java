@@ -33,7 +33,7 @@ import org.apache.geode.redis.internal.executor.RedisResponse;
  */
 public class Command {
 
-  private final List<byte[]> commandElems;
+  private final List<ByteBuf> commandElems;
   private final RedisCommandType commandType;
   private String key;
   private ByteArrayWrapper bytes;
@@ -52,7 +52,7 @@ public class Command {
    *
    * @param commandElems List of elements in command
    */
-  public Command(List<byte[]> commandElems) {
+  public Command(List<ByteBuf> commandElems) {
     if (commandElems == null || commandElems.isEmpty()) {
       throw new IllegalArgumentException(
           "List of command elements cannot be empty -> List:" + commandElems);
@@ -60,9 +60,8 @@ public class Command {
     this.commandElems = commandElems;
 
     RedisCommandType type;
+    ByteBuf charCommand = commandElems.get(0).retain();
     try {
-      byte[] charCommand = commandElems.get(0);
-      //String commandName = Coder.bytesToString(charCommand).toUpperCase();
       type = RedisCommandType.valueOf(charCommand);
     } catch (Exception e) {
       type = RedisCommandType.UNKNOWN;
@@ -92,7 +91,15 @@ public class Command {
    * @return List of command elements in form of {@link List}
    */
   public List<byte[]> getProcessedCommand() {
-    return this.commandElems;
+    return commandElems.stream().map(b -> {
+      final byte[] bytes = new byte[b.readableBytes()];
+      b.getBytes(b.readerIndex(), bytes);
+      return bytes;
+    }).collect(Collectors.toList());
+  }
+
+  public List<ByteBuf> getCommandParts() {
+    return commandElems;
   }
 
   /**
@@ -101,7 +108,7 @@ public class Command {
    * @return List of command elements in form of {@link List}
    */
   public List<ByteArrayWrapper> getProcessedCommandWrappers() {
-    return this.commandElems.stream().map(ByteArrayWrapper::new).collect(Collectors.toList());
+    return getProcessedCommand().stream().map(ByteArrayWrapper::new).collect(Collectors.toList());
   }
 
   /**
@@ -110,7 +117,7 @@ public class Command {
    * @return List of command elements in form of {@link List}
    */
   public List<RedisKey> getProcessedCommandWrapperKeys() {
-    return this.commandElems.stream().map(RedisKey::new).collect(Collectors.toList());
+    return getProcessedCommand().stream().map(RedisKey::new).collect(Collectors.toList());
   }
 
   /**
@@ -132,7 +139,7 @@ public class Command {
   public String getStringKey() {
     if (this.commandElems.size() > 1) {
       if (this.bytes == null) {
-        this.bytes = new ByteArrayWrapper(this.commandElems.get(1));
+        this.bytes = new ByteArrayWrapper(this.commandElems.get(1).array());
         this.key = this.bytes.toString();
       } else if (this.key == null) {
         this.key = this.bytes.toString();
@@ -146,7 +153,7 @@ public class Command {
   public RedisKey getKey() {
     if (this.commandElems.size() > 1) {
       if (this.bytes == null) {
-        this.bytes = new RedisKey(this.commandElems.get(1));
+        this.bytes = new RedisKey(this.commandElems.get(1).array());
       }
       return (RedisKey) this.bytes;
     } else {
@@ -157,21 +164,21 @@ public class Command {
   @Override
   public String toString() {
     StringBuilder b = new StringBuilder();
-    for (byte[] rawCommand : this.commandElems) {
+    for (ByteBuf rawCommand : this.commandElems) {
       b.append(getHexEncodedString(rawCommand));
       b.append(' ');
     }
     return b.toString();
   }
 
-  public static String getHexEncodedString(byte[] data) {
-    return getHexEncodedString(data, data.length);
+  public static String getHexEncodedString(ByteBuf data) {
+    return getHexEncodedString(data, data.readableBytes());
   }
 
-  public static String getHexEncodedString(byte[] data, int size) {
+  public static String getHexEncodedString(ByteBuf data, int size) {
     StringBuilder builder = new StringBuilder();
     for (int i = 0; i < size; i++) {
-      byte aByte = data[i];
+      byte aByte = data.getByte(i);
       if (aByte > 31 && aByte < 127) {
         builder.append((char) aByte);
       } else {
@@ -227,5 +234,9 @@ public class Command {
 
   public ChannelHandlerContext getChannelHandlerContext() {
     return channelHandlerContext;
+  }
+
+  public void release() {
+    commandElems.get(0).release();
   }
 }
