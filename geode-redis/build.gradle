@@ -94,7 +94,10 @@ dependencies {
   distributedTestImplementation('org.springframework.boot:spring-boot-starter-data-redis')
   distributedTestImplementation('org.springframework.session:spring-session-data-redis')
 
-  jmhImplementation("com.google.guava:guava:30.1.1-jre")
+
+  jmhTestImplementation('junit:junit')
+  jmhTestImplementation('org.assertj:assertj-core')
+
 }
 
 configurations{
