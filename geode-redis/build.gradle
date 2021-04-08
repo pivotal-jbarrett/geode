@@ -19,6 +19,7 @@ apply from: "${rootDir}/${scriptDir}/standard-subproject-configuration.gradle"
 
 apply from: "${project.projectDir}/../gradle/publish-java.gradle"
 apply from: "${rootDir}/${scriptDir}/warnings.gradle"
+apply from: "${project.projectDir}/../gradle/jmh.gradle"
 
 apply plugin: 'nebula.facet'
 facets {
@@ -92,6 +93,8 @@ dependencies {
   distributedTestImplementation('org.springframework.boot:spring-boot-starter')
   distributedTestImplementation('org.springframework.boot:spring-boot-starter-data-redis')
   distributedTestImplementation('org.springframework.session:spring-session-data-redis')
+
+  jmhImplementation("com.google.guava:guava:30.1.1-jre")
 }
 
 configurations{
