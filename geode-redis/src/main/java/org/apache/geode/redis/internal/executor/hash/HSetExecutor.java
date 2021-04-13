@@ -66,15 +66,15 @@ public class HSetExecutor extends HashExecutor {
 
     if (null == hash) {
       hash = new HashMap<>((size-2) / 2);
-      cache.put(copiedBuffer(key).asReadOnly(), hash);
+      cache.put(copiedBuffer(key), hash);
     }
 
     int addedFields = 0;
     for (int i = 2; i < size;) {
       final ByteBuf k = commandElems.get(i++);
-      final ByteBuf v = copiedBuffer(commandElems.get(i++)).asReadOnly();
+      final ByteBuf v = copiedBuffer(commandElems.get(i++));
       if (null == hash.replace(k, v)) {
-        hash.put(copiedBuffer(k).asReadOnly(), v);
+        hash.put(copiedBuffer(k), v);
         addedFields++;
       }
     }
