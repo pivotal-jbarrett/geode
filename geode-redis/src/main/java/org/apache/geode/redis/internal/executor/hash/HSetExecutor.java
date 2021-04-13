@@ -15,17 +15,19 @@
 package org.apache.geode.redis.internal.executor.hash;
 
 import static io.netty.buffer.Unpooled.copiedBuffer;
+import static org.apache.geode.redis.internal.executor.hash.DummyCache.cache;
+import static org.apache.geode.redis.internal.netty.Coder.CRLFar;
+import static org.apache.geode.redis.internal.netty.Coder.INTEGER_ID;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 import io.netty.buffer.ByteBuf;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import io.netty.buffer.ByteBufAllocator;
 
 import org.apache.geode.redis.internal.executor.RedisResponse;
-import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -46,7 +48,6 @@ import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
  */
 public class HSetExecutor extends HashExecutor {
 
-  static final Map<ByteBuf, Map<ByteBuf, byte[]>> data = new HashMap<>();
 
   @Override
   public RedisResponse executeCommand(Command command,
@@ -61,30 +62,40 @@ public class HSetExecutor extends HashExecutor {
 
     final ByteBuf key = commandElems.get(1);
 
-    Map<ByteBuf, byte[]> hash = data.get(key);
+    Map<ByteBuf, ByteBuf> hash = cache.get(key);
 
     if (null == hash) {
       hash = new HashMap<>((size-2) / 2);
-      data.put(copiedBuffer(key), hash);
+      cache.put(copiedBuffer(key), hash);
     }
 
+    int addedFields = 0;
     for (int i = 2; i < size;) {
       final ByteBuf k = commandElems.get(i++);
-      final byte[] v = copiedArray(commandElems.get(i++));
+      final ByteBuf v = copiedBuffer(commandElems.get(i++));
       if (null != hash.replace(k, v)) {
         hash.put(copiedBuffer(k), v);
+        addedFields++;
       }
     }
 
-    // TODO correct return value
-    final ByteBuf buffer = context.getByteBufAllocator().buffer();
-    return buffer.writeByte(Coder.INTEGER_ID).writeByte(48).writeBytes(Coder.CRLFar);
+    return toRespInteger(addedFields, context.getByteBufAllocator());
   }
 
-  private static byte[] copiedArray(final ByteBuf buffer) {
-    final byte[] bytes = new byte[buffer.readableBytes()];
-    buffer.getBytes(0, bytes);
-    return bytes;
+  static final int RESP_INTEGER_CAPACITY = 1 /*:*/ + 11 /*int*/ + 2 /*crlf*/;
+
+  static ByteBuf toRespInteger(final int value, final ByteBufAllocator byteBufAllocator) {
+    final ByteBuf buffer = byteBufAllocator.buffer(RESP_INTEGER_CAPACITY, RESP_INTEGER_CAPACITY);
+    buffer.writeByte(INTEGER_ID);
+    writeToString(value, buffer);
+    buffer.writeBytes(CRLFar);
+    return buffer;
+  }
+
+  // TODO optimize direct int -> ByteBuf as string
+  static ByteBuf writeToString(final int value, final ByteBuf buffer) {
+    buffer.writeCharSequence(Integer.toString(value), StandardCharsets.UTF_8);
+    return buffer;
   }
 
   protected boolean onlySetOnAbsent() {

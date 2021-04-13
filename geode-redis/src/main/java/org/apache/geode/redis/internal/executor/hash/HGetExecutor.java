@@ -14,10 +14,19 @@
  */
 package org.apache.geode.redis.internal.executor.hash;
 
-import java.util.List;
+import static org.apache.geode.redis.internal.executor.hash.DummyCache.cache;
 
-import org.apache.geode.redis.internal.data.RedisKey;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
+
 import org.apache.geode.redis.internal.executor.RedisResponse;
+import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -36,20 +45,48 @@ import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
  */
 public class HGetExecutor extends HashExecutor {
 
+
   @Override
   public RedisResponse executeCommand(Command command,
-      ExecutionHandlerContext context) {
-    List<byte[]> commandElems = command.getProcessedCommand();
+                                      ExecutionHandlerContext context) {
+    throw new IllegalStateException();
+  }
 
-    byte[] field = commandElems.get(FIELD_INDEX);
-    RedisKey key = command.getKey();
-    RedisHashCommands redisHashCommands = context.getRedisHashCommands();
-    byte[] valueWrapper = redisHashCommands.hget(key, field);
+  @Override
+  public ByteBuf executeCommand2(final Command command, final ExecutionHandlerContext context) {
+    final List<ByteBuf> commandElems = command.getCommandParts();
 
-    if (valueWrapper != null) {
-      return RedisResponse.bulkString(valueWrapper);
+    final ByteBuf key = commandElems.get(1);
+    final ByteBuf field = commandElems.get(2);
+
+    final Map<ByteBuf, ByteBuf> hash = cache.get(key);
+
+    final ByteBuf value;
+    if (null == hash) {
+      value = null;
     } else {
-      return RedisResponse.nil();
+      value = hash.get(field);
     }
+
+    if (null == value) {
+      return NIL;
+    }
+
+    return toBulkString(value, context.getByteBufAllocator());
+  }
+
+  static final ByteBuf CRLF = Unpooled.directBuffer(2,2).writeByte('\r').writeByte('\n').asReadOnly();
+  static final ByteBuf NIL = Unpooled.directBuffer(5, 5 ).writeByte('$').writeByte('-').writeByte('1').writeBytes(CRLF.duplicate()).asReadOnly();
+
+  static final int RESP_BULK_STRING_COMPONENTS = 4; /*header, crlf, value, crlf*/
+  static final int RESP_BULK_STRING_HEADER_CAPACITY = 1 /*$*/ + 11 /*int*/;
+
+  static ByteBuf toBulkString(final ByteBuf value, final ByteBufAllocator byteBufAllocator) {
+    final CompositeByteBuf buffer = byteBufAllocator.compositeBuffer(RESP_BULK_STRING_COMPONENTS);
+    buffer.addComponent(true, HSetExecutor.writeToString(value.readableBytes(), byteBufAllocator.directBuffer(RESP_BULK_STRING_HEADER_CAPACITY,RESP_BULK_STRING_HEADER_CAPACITY).writeByte(Coder.BULK_STRING_ID)));
+    buffer.addComponent(true, CRLF);
+    buffer.addComponent(true, value);
+    buffer.addComponent(true, CRLF);
+    return buffer;
   }
 }

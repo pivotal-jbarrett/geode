@@ -52,12 +52,6 @@ import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 public class ClusterExecutor extends AbstractExecutor {
 
   private static final Logger logger = LogService.getLogger();
-  private final String memberId;
-
-  public ClusterExecutor() {
-    memberId =
-        CacheFactory.getAnyInstance().getDistributedSystem().getDistributedMember().getUniqueId();
-  }
 
   @Override
   public RedisResponse executeCommand(Command command, ExecutionHandlerContext context) {
@@ -156,6 +150,8 @@ public class ClusterExecutor extends AbstractExecutor {
 
   private RedisResponse getNodes(ExecutionHandlerContext ctx) {
     List<BucketRetrievalFunction.MemberBuckets> memberBuckets = getMemberBuckets(ctx);
+
+    final String memberId = CacheFactory.getAnyInstance().getDistributedSystem().getDistributedMember().getUniqueId();
 
     StringBuilder response = new StringBuilder();
     for (MemberBuckets m : memberBuckets) {
