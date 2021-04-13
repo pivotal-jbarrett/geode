@@ -269,7 +269,7 @@ public class ExecutionHandlerContext extends ChannelInboundHandlerAdapter {
             channel.remoteAddress().toString());
       }
 
-      if (command.isOfType(RedisCommandType.HSET)) {
+      if (command.isOfType(RedisCommandType.HSET) || command.isOfType(RedisCommandType.HGET)) {
         writeToChannel(command.execute2(this));
         return;
       }

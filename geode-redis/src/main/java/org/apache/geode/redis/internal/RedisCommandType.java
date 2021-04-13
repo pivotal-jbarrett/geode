@@ -444,6 +444,15 @@ public enum RedisCommandType {
           }
         }
       }
+      else if ('G' == c || 'g' == c) {
+        c = asciiString.getByte(2);
+        if ('E' == c || 'e' == c) {
+          c = asciiString.getByte(3);
+          if ('T' == c || 't' == c) {
+            return HGET;
+          }
+        }
+      }
     }
 
     return valueOf(asciiString.toString(StandardCharsets.UTF_8).toUpperCase());
