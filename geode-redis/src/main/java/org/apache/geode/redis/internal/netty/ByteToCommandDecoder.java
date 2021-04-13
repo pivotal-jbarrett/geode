@@ -117,14 +117,14 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
       }
       final byte currentChar = buffer.readByte();
       if (currentChar == bulkStringID) {
-        ByteBuf newBulkString = parseBulkString(buffer);
+        final ByteBuf newBulkString = parseBulkString(buffer);
         if (newBulkString == null) {
           return null;
         }
         commandElems.add(newBulkString);
       } else {
         throw new RedisCommandParserException(
-            "expected: \'$\', got \'" + (char) currentChar + "\'");
+            "expected: '$', got '" + (char) currentChar + "'");
       }
     }
     return commandElems;
@@ -154,8 +154,7 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
       return null;
     }
 
-    final ByteBuf bulkString = buffer.slice(buffer.readerIndex(), bulkStringLength);
-    buffer.readerIndex(buffer.readerIndex() + bulkStringLength);
+    final ByteBuf bulkString = buffer.readSlice(bulkStringLength);
 
     if (!parseRN(buffer)) {
       return null;
@@ -200,15 +199,16 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
     if (!buffer.isReadable(2)) {
       return false;
     }
-    byte b = buffer.readByte();
-    if (b != rID) {
+
+    final byte r = buffer.readByte();
+    if (r != rID) {
       throw new RedisCommandParserException(
-          "expected \'" + (char) rID + "\', got \'" + (char) b + "\'");
+          "expected '" + (char) rID + "', got '" + (char) r + "'");
     }
-    b = buffer.readByte();
-    if (b != nID) {
+    final byte n = buffer.readByte();
+    if (n != nID) {
       throw new RedisCommandParserException(
-          "expected: \'" + (char) nID + "\', got \'" + (char) b + "\'");
+          "expected: '" + (char) nID + "', got '" + (char) n + "'");
     }
     return true;
   }
