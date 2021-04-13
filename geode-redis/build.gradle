@@ -39,7 +39,6 @@ dependencies {
   implementation('it.unimi.dsi:fastutil')
   implementation('com.github.davidmoten:geo')
   implementation('io.netty:netty-all')
-  implementation('io.netty:netty-transport-native-epoll::linux-x86_64')
   implementation('org.apache.logging.log4j:log4j-api')
   implementation('commons-codec:commons-codec')
   implementation('org.apache.commons:commons-lang3')
@@ -56,7 +55,9 @@ dependencies {
   integrationTestImplementation(project(':geode-junit'))
   integrationTestImplementation(sourceSets.commonTest.output)
   integrationTestImplementation('redis.clients:jedis')
-  integrationTestImplementation('io.lettuce:lettuce-core')
+  integrationTestImplementation('io.lettuce:lettuce-core') {
+    exclude group: 'io.netty'
+  }
   integrationTestImplementation('org.apache.logging.log4j:log4j-core')
   // This only exists for debugging PubSubNativeRedisAcceptanceTest
   integrationTestImplementation('org.buildobjects:jproc:2.4.0')
@@ -83,8 +84,9 @@ dependencies {
   distributedTestImplementation(project(':geode-dunit'))
   distributedTestImplementation(sourceSets.commonTest.output)
   distributedTestImplementation('redis.clients:jedis')
-  distributedTestImplementation('io.lettuce:lettuce-core')
-
+  distributedTestImplementation('io.lettuce:lettuce-core') {
+    exclude group: 'io.netty'
+  }
   distributedTestImplementation('javax.servlet:javax.servlet-api')
   distributedTestImplementation('org.springframework.boot:spring-boot-starter-jetty')
   distributedTestImplementation('org.springframework.boot:spring-boot-starter-web') {
