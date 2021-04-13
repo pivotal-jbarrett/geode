@@ -62,9 +62,9 @@ public class HGetExecutor extends HashExecutor {
     final ByteBuf key = commandElems.get(1);
     final ByteBuf field = commandElems.get(2);
 
-    logger.info("executeCommand2: cache={}", cache);
+//    logger.info("executeCommand2: cache={}", cache);
     final Map<ByteBuf, ByteBuf> hash = cache.get(key);
-    logger.info("executeCommand2: key={}, hash={}", key.toString(StandardCharsets.UTF_8), hash);
+//    logger.info("executeCommand2: key={}, hash={}", key.toString(StandardCharsets.UTF_8), hash);
 
     final ByteBuf value;
     if (null == hash) {
@@ -73,7 +73,7 @@ public class HGetExecutor extends HashExecutor {
       value = hash.get(field);
     }
 
-    logger.info("executeCommand2: field={}, value={}", field.toString(StandardCharsets.UTF_8), value);
+//    logger.info("executeCommand2: field={}, value={}", field.toString(StandardCharsets.UTF_8), value);
 
     if (null == value) {
       return NIL.retain();

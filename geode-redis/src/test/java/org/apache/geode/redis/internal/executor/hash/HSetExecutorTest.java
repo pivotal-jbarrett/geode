@@ -35,7 +35,8 @@ public class HSetExecutorTest {
 
     hSetExecutor.executeCommand2(command, executionHandlerContext);
 
-    assertThat(cache).containsKey(wrappedBuffer("key1"));
+    assertThat(cache.get(wrappedBuffer("key1")))
+        .contains(entry(wrappedBuffer("field1"), wrappedBuffer("value1")));
   }
 
   @Test
