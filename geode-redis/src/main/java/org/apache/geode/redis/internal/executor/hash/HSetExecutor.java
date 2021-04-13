@@ -28,6 +28,7 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 
 import org.apache.geode.redis.internal.executor.RedisResponse;
+import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -55,31 +56,36 @@ public class HSetExecutor extends HashExecutor {
     throw new IllegalStateException();
   }
 
+//  @Override
+//  public ByteBuf executeCommand2(final Command command, final ExecutionHandlerContext context) {
+//    final List<ByteBuf> commandElems = command.getCommandParts();
+//    final int size = commandElems.size();
+//
+//    final ByteBuf key = commandElems.get(1);
+//
+//    Map<ByteBuf, ByteBuf> hash = cache.get(key);
+//
+//    if (null == hash) {
+//      hash = new HashMap<>((size-2) / 2);
+//      cache.put(copiedBuffer(key), hash);
+//    }
+//
+//    int addedFields = 0;
+//    for (int i = 2; i < size;) {
+//      final ByteBuf k = commandElems.get(i++);
+//      final ByteBuf v = copiedBuffer(commandElems.get(i++));
+//      if (null == hash.replace(k, v)) {
+//        hash.put(copiedBuffer(k), v);
+//        addedFields++;
+//      }
+//    }
+//
+//    return toRespInteger(addedFields, context.getByteBufAllocator());
+//  }
+
   @Override
   public ByteBuf executeCommand2(final Command command, final ExecutionHandlerContext context) {
-    final List<ByteBuf> commandElems = command.getCommandParts();
-    final int size = commandElems.size();
-
-    final ByteBuf key = commandElems.get(1);
-
-    Map<ByteBuf, ByteBuf> hash = cache.get(key);
-
-    if (null == hash) {
-      hash = new HashMap<>((size-2) / 2);
-      cache.put(copiedBuffer(key), hash);
-    }
-
-    int addedFields = 0;
-    for (int i = 2; i < size;) {
-      final ByteBuf k = commandElems.get(i++);
-      final ByteBuf v = copiedBuffer(commandElems.get(i++));
-      if (null == hash.replace(k, v)) {
-        hash.put(copiedBuffer(k), v);
-        addedFields++;
-      }
-    }
-
-    return toRespInteger(addedFields, context.getByteBufAllocator());
+    return context.getByteBufAllocator().buffer().writeByte(Coder.INTEGER_ID).writeByte(48).writeBytes(Coder.CRLFar);
   }
 
   static ByteBuf copiedBuffer(final ByteBuf buffer) {
