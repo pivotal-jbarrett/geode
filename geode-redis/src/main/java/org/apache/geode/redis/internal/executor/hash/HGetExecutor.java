@@ -24,7 +24,9 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
+import org.apache.logging.log4j.Logger;
 
+import org.apache.geode.logging.internal.log4j.api.LogService;
 import org.apache.geode.redis.internal.executor.RedisResponse;
 import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
@@ -45,6 +47,7 @@ import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
  */
 public class HGetExecutor extends HashExecutor {
 
+  private static final Logger logger = LogService.getLogger();
 
   @Override
   public RedisResponse executeCommand(Command command,
@@ -59,7 +62,9 @@ public class HGetExecutor extends HashExecutor {
     final ByteBuf key = commandElems.get(1);
     final ByteBuf field = commandElems.get(2);
 
+    logger.info("executeCommand2: cache={}", cache);
     final Map<ByteBuf, ByteBuf> hash = cache.get(key);
+    logger.info("executeCommand2: key={}, hash={}", key.toString(StandardCharsets.UTF_8), hash);
 
     final ByteBuf value;
     if (null == hash) {
@@ -67,6 +72,8 @@ public class HGetExecutor extends HashExecutor {
     } else {
       value = hash.get(field);
     }
+
+    logger.info("executeCommand2: field={}, value={}", field.toString(StandardCharsets.UTF_8), value);
 
     if (null == value) {
       return NIL.retain();
