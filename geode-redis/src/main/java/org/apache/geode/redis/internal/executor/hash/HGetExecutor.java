@@ -69,7 +69,7 @@ public class HGetExecutor extends HashExecutor {
     }
 
     if (null == value) {
-      return NIL;
+      return NIL.retain();
     }
 
     return toBulkString(value, context.getByteBufAllocator());
@@ -84,9 +84,9 @@ public class HGetExecutor extends HashExecutor {
   static ByteBuf toBulkString(final ByteBuf value, final ByteBufAllocator byteBufAllocator) {
     final CompositeByteBuf buffer = byteBufAllocator.compositeBuffer(RESP_BULK_STRING_COMPONENTS);
     buffer.addComponent(true, HSetExecutor.writeToString(value.readableBytes(), byteBufAllocator.directBuffer(RESP_BULK_STRING_HEADER_CAPACITY,RESP_BULK_STRING_HEADER_CAPACITY).writeByte(Coder.BULK_STRING_ID)));
-    buffer.addComponent(true, CRLF);
-    buffer.addComponent(true, value);
-    buffer.addComponent(true, CRLF);
+    buffer.addComponent(true, CRLF.retain());
+    buffer.addComponent(true, value.retain());
+    buffer.addComponent(true, CRLF.retain());
     return buffer;
   }
 }

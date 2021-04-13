@@ -35,7 +35,10 @@ public class HGetExecutorTest {
 
     final ByteBuf expected = wrappedBuffer("$-1\r\n");
 
-    assertThat(hGetExecutor.executeCommand2(command, executionHandlerContext)).isEqualTo(expected);
+    final ByteBuf actual = hGetExecutor.executeCommand2(command, executionHandlerContext);
+    assertThat(actual).isEqualTo(expected);
+    actual.release();
+
     assertThat(hGetExecutor.executeCommand2(command, executionHandlerContext)).isEqualTo(expected);
   }
 
@@ -54,7 +57,10 @@ public class HGetExecutorTest {
     when(executionHandlerContext.getByteBufAllocator()).thenReturn(ByteBufAllocator.DEFAULT);
 
     final ByteBuf expected = wrappedBuffer("$-1\r\n");
-    assertThat(hGetExecutor.executeCommand2(command, executionHandlerContext)).isEqualTo(expected);
+
+    final ByteBuf actual = hGetExecutor.executeCommand2(command, executionHandlerContext);
+    assertThat(actual).isEqualTo(expected);
+    actual.release();
     assertThat(hGetExecutor.executeCommand2(command, executionHandlerContext)).isEqualTo(expected);
   }
 
@@ -75,7 +81,9 @@ public class HGetExecutorTest {
 
     final ByteBuf expected = wrappedBuffer("$6\r\nvalue1\r\n").asReadOnly();
 
-    assertThat(hGetExecutor.executeCommand2(command, executionHandlerContext)).isEqualTo(expected);
+    final ByteBuf actual = hGetExecutor.executeCommand2(command, executionHandlerContext);
+    assertThat(actual).isEqualTo(expected);
+    actual.release();
     assertThat(hGetExecutor.executeCommand2(command, executionHandlerContext)).isEqualTo(expected);
   }
 

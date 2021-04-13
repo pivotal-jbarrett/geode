@@ -94,7 +94,11 @@ public class HSetExecutor extends HashExecutor {
 
   // TODO optimize direct int -> ByteBuf as string
   static ByteBuf writeToString(final int value, final ByteBuf buffer) {
-    buffer.writeCharSequence(Integer.toString(value), StandardCharsets.UTF_8);
+    if (value >= 0 && value <= 9) {
+      buffer.writeByte('0' + value);
+    } else {
+      buffer.writeCharSequence(Integer.toString(value), StandardCharsets.UTF_8);
+    }
     return buffer;
   }
 
