@@ -14,7 +14,6 @@
  */
 package org.apache.geode.redis.internal.executor.hash;
 
-import static io.netty.buffer.Unpooled.copiedBuffer;
 import static org.apache.geode.redis.internal.executor.hash.DummyCache.cache;
 import static org.apache.geode.redis.internal.netty.Coder.CRLFar;
 import static org.apache.geode.redis.internal.netty.Coder.INTEGER_ID;
@@ -26,6 +25,7 @@ import java.util.Map;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.Unpooled;
 
 import org.apache.geode.redis.internal.executor.RedisResponse;
 import org.apache.geode.redis.internal.netty.Command;
@@ -66,20 +66,32 @@ public class HSetExecutor extends HashExecutor {
 
     if (null == hash) {
       hash = new HashMap<>((size-2) / 2);
-      cache.put(copiedBuffer(key), hash);
+      cache.put(copiedBuffer(key).asReadOnly(), hash);
     }
 
     int addedFields = 0;
     for (int i = 2; i < size;) {
       final ByteBuf k = commandElems.get(i++);
-      final ByteBuf v = copiedBuffer(commandElems.get(i++));
+      final ByteBuf v = copiedBuffer(commandElems.get(i++)).asReadOnly();
       if (null == hash.replace(k, v)) {
-        hash.put(copiedBuffer(k), v);
+        hash.put(copiedBuffer(k).asReadOnly(), v);
         addedFields++;
       }
     }
 
     return toRespInteger(addedFields, context.getByteBufAllocator());
+  }
+
+  static ByteBuf copiedBuffer(final ByteBuf buffer) {
+//    return Unpooled.copiedBuffer(buffer);
+    final int readableBytes = buffer.readableBytes();
+    if (readableBytes > 0) {
+      final ByteBuf copy = Unpooled.directBuffer(readableBytes, readableBytes);
+      copy.writeBytes(buffer, buffer.readerIndex(), readableBytes);
+      return copy;
+    }
+
+    return Unpooled.EMPTY_BUFFER;
   }
 
   static final int RESP_INTEGER_CAPACITY = 1 /*:*/ + 11 /*int*/ + 2 /*crlf*/;
