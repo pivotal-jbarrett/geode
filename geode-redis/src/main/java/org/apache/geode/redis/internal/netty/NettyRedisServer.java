@@ -40,17 +40,10 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.epoll.EpollEventLoopGroup;
-import io.netty.channel.epoll.EpollServerSocketChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.timeout.WriteTimeoutHandler;
-import io.netty.incubator.channel.uring.IOUring;
-import io.netty.incubator.channel.uring.IOUringEventLoopGroup;
-import io.netty.incubator.channel.uring.IOUringServerSocketChannel;
 import io.netty.util.concurrent.Future;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -109,15 +102,15 @@ public class NettyRedisServer {
           "Redis port cannot be less than " + RANDOM_PORT_INDICATOR);
     }
 
-    IOUring.ensureAvailability();
+    final NettyTransportFactory nettyTransportFactory = DefaultNettyTransportFactory.getInstance();
 
-    selectorGroup = createEventLoopGroup("Selector", true, 1);
-    workerGroup = createEventLoopGroup("Worker", true, 0);
-    subscriberGroup = createEventLoopGroup("Subscriber", true, 0);
+    selectorGroup = createEventLoopGroup("Selector", true, 1, nettyTransportFactory);
+    workerGroup = createEventLoopGroup("Worker", true, 0, nettyTransportFactory);
+    subscriberGroup = createEventLoopGroup("Subscriber", true, 0, nettyTransportFactory);
 
     try {
-      this.bindAddress = getBindAddress(requestedAddress);
-      serverChannel = createChannel(port);
+      bindAddress = getBindAddress(requestedAddress);
+      serverChannel = createChannel(port, nettyTransportFactory);
     } catch (ManagementException e) {
       stop();
       throw e;
@@ -126,11 +119,11 @@ public class NettyRedisServer {
     logStartupMessage();
   }
 
-  private Channel createChannel(int port) {
-    ServerBootstrap serverBootstrap =
+  private Channel createChannel(final int port, final NettyTransportFactory nettyTransportFactory) {
+    final ServerBootstrap serverBootstrap =
         new ServerBootstrap()
             .group(selectorGroup, workerGroup)
-            .channel(IOUringServerSocketChannel.class)
+            .channel(nettyTransportFactory.getServerChannelClass())
             .childHandler(createChannelInitializer())
             .option(ChannelOption.SO_REUSEADDR, true)
             .childOption(ChannelOption.SO_SNDBUF, 1024 * 1024)
@@ -273,10 +266,11 @@ public class NettyRedisServer {
     }
   }
 
-  private static EventLoopGroup createEventLoopGroup(String name, boolean isDaemon, int nThreads) {
-    String fullName = "GeodeRedisServer-" + name + "Thread-";
-    ThreadFactory threadFactory = new LoggingThreadFactory(fullName, isDaemon);
-    return new IOUringEventLoopGroup(nThreads, threadFactory, 1 << 14, 25);
+  private static EventLoopGroup createEventLoopGroup(final String name, final boolean isDaemon,
+      final int nThreads, final NettyTransportFactory nettyTransportFactory) {
+    final String fullName = "GeodeRedisServer-" + name + "Thread-";
+    final ThreadFactory threadFactory = new LoggingThreadFactory(fullName, isDaemon);
+    return nettyTransportFactory.createEventLoopGroup(nThreads, threadFactory);
   }
 
 }
