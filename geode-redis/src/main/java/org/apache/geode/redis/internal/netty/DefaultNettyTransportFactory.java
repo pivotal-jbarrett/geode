@@ -20,10 +20,20 @@ import static org.apache.geode.util.internal.UncheckedUtils.uncheckedCast;
 
 import java.util.Properties;
 
+import org.apache.logging.log4j.Logger;
+
+import org.apache.geode.logging.internal.log4j.api.LogService;
+
 public class DefaultNettyTransportFactory {
+  private static final Logger log = LogService.getLogger();
+
   static final String KEY = DefaultNettyTransportFactory.class.getName();
 
   static final NettyTransportFactory instance = fromProperties(System.getProperties());
+
+  static {
+    log.info("Instance is {}", instance.getClass().getName());
+  }
 
   static NettyTransportFactory getInstance() {
     return instance;
