@@ -74,9 +74,12 @@ public class HSetExecutor extends HashExecutor {
     for (int i = 2; i < size;) {
       final ByteBuf k = commandElems.get(i++);
       final ByteBuf v = copiedBuffer(commandElems.get(i++));
-      if (null == hash.replace(k, v)) {
+      final ByteBuf replaced = hash.replace(k, v);
+      if (null == replaced) {
         hash.put(copiedBuffer(k), v);
         addedFields++;
+      } else {
+        replaced.release();
       }
     }
 
