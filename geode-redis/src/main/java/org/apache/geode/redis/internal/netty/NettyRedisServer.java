@@ -48,6 +48,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import io.netty.incubator.channel.uring.IOUring;
 import io.netty.incubator.channel.uring.IOUringEventLoopGroup;
 import io.netty.incubator.channel.uring.IOUringServerSocketChannel;
 import io.netty.util.concurrent.Future;
@@ -107,6 +108,8 @@ public class NettyRedisServer {
       throw new IllegalArgumentException(
           "Redis port cannot be less than " + RANDOM_PORT_INDICATOR);
     }
+
+    IOUring.ensureAvailability();
 
     selectorGroup = createEventLoopGroup("Selector", true, 1);
     workerGroup = createEventLoopGroup("Worker", true, 0);
