@@ -2,7 +2,6 @@ package org.apache.geode.redis.internal.executor.hash;
 
 import static org.apache.geode.redis.internal.executor.hash.DummyCache.cache;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 

@@ -1345,10 +1345,13 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
   }
 
   Object get(final Object key, final Object aCallbackArgument, final boolean generateCallbacks,
-             final boolean disableCopyOnRead, final boolean preferCD, final ClientProxyMembershipID requestingClient,
-             final EntryEventImpl clientEvent, final boolean returnTombstones, final boolean opScopeIsLocal,
-             final boolean retainResult) throws TimeoutException, CacheLoaderException {
-    return get(key,  aCallbackArgument,  generateCallbacks, disableCopyOnRead,  preferCD,  requestingClient, clientEvent,  returnTombstones,  opScopeIsLocal, retainResult, null);
+      final boolean disableCopyOnRead, final boolean preferCD,
+      final ClientProxyMembershipID requestingClient,
+      final EntryEventImpl clientEvent, final boolean returnTombstones,
+      final boolean opScopeIsLocal,
+      final boolean retainResult) throws TimeoutException, CacheLoaderException {
+    return get(key, aCallbackArgument, generateCallbacks, disableCopyOnRead, preferCD,
+        requestingClient, clientEvent, returnTombstones, opScopeIsLocal, retainResult, null);
   }
 
   /**
@@ -1357,9 +1360,11 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
    * @param retainResult if true then the result may be a retained off-heap reference.
    */
   Object get(final Object key, final Object aCallbackArgument, final boolean generateCallbacks,
-             final boolean disableCopyOnRead, final boolean preferCD, final ClientProxyMembershipID requestingClient,
-             final EntryEventImpl clientEvent, final boolean returnTombstones, final boolean opScopeIsLocal,
-             final boolean retainResult, KeyInfo keyInfo) throws TimeoutException, CacheLoaderException {
+      final boolean disableCopyOnRead, final boolean preferCD,
+      final ClientProxyMembershipID requestingClient,
+      final EntryEventImpl clientEvent, final boolean returnTombstones,
+      final boolean opScopeIsLocal,
+      final boolean retainResult, KeyInfo keyInfo) throws TimeoutException, CacheLoaderException {
     assert !retainResult || preferCD;
     validateKey(key);
     checkReadiness();

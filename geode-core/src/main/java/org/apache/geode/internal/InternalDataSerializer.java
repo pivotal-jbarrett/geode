@@ -1830,7 +1830,7 @@ public abstract class InternalDataSerializer extends DataSerializer {
     final int size = in.readInt();
     if (size > 0) {
       final boolean longIDs = in.readBoolean();
-      if (longIDs)  {
+      if (longIDs) {
         for (int i = 0; i < size; i++) {
           in.readLong();
         }

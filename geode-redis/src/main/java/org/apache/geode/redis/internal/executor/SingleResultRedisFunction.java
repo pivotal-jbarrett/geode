@@ -57,7 +57,8 @@ public abstract class SingleResultRedisFunction implements InternalFunction<Obje
   public <T> T hackedExecute(final RedisKey key, final Object[] args) {
     final AtomicReference<Object> result = new AtomicReference<>();
 
-    partitionedRegion.computeWithPrimaryLocked(key, (t, k, a, r) -> r.set(t.compute(k, a)), this, key, args, result);
+    partitionedRegion.computeWithPrimaryLocked(key, (t, k, a, r) -> r.set(t.compute(k, a)), this,
+        key, args, result);
 
     return (T) result.get();
   }

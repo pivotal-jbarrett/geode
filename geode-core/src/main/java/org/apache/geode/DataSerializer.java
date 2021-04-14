@@ -3116,7 +3116,8 @@ public abstract class DataSerializer {
     return getEnumConstantsForClass(clazz)[ordinal];
   }
 
-  public static <E extends Enum<E>> E readEnum(final E[] values, final DataInput in) throws IOException {
+  public static <E extends Enum<E>> E readEnum(final E[] values, final DataInput in)
+      throws IOException {
     InternalDataSerializer.checkIn(in);
     final int ordinal = InternalDataSerializer.readArrayLength(in);
     return values[ordinal];

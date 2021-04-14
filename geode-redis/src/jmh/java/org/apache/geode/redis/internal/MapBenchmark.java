@@ -30,17 +30,17 @@ import org.openjdk.jmh.annotations.State;
 
 /**
  *
- * Benchmark                                         (impl)   Mode  Cnt         Score   Error  Units
- * MapBenchmark.containsKeyAndPut                   HashMap  thrpt       50336158.258          ops/s
- * MapBenchmark.containsKeyAndPut  Object2ObjectOpenHashMap  thrpt       45046494.882          ops/s
- * MapBenchmark.get                                 HashMap  thrpt       84261605.262          ops/s
- * MapBenchmark.get                Object2ObjectOpenHashMap  thrpt       59799047.618          ops/s
- * MapBenchmark.put                                 HashMap  thrpt       48290273.917          ops/s
- * MapBenchmark.put                Object2ObjectOpenHashMap  thrpt       51348095.124          ops/s
- * MapBenchmark.putIfAbsent                         HashMap  thrpt       66080613.503          ops/s
- * MapBenchmark.putIfAbsent        Object2ObjectOpenHashMap  thrpt       62525262.585          ops/s
- * MapBenchmark.replace                             HashMap  thrpt       63781845.155          ops/s
- * MapBenchmark.replace            Object2ObjectOpenHashMap  thrpt       44545188.132          ops/s
+ * Benchmark (impl) Mode Cnt Score Error Units
+ * MapBenchmark.containsKeyAndPut HashMap thrpt 50336158.258 ops/s
+ * MapBenchmark.containsKeyAndPut Object2ObjectOpenHashMap thrpt 45046494.882 ops/s
+ * MapBenchmark.get HashMap thrpt 84261605.262 ops/s
+ * MapBenchmark.get Object2ObjectOpenHashMap thrpt 59799047.618 ops/s
+ * MapBenchmark.put HashMap thrpt 48290273.917 ops/s
+ * MapBenchmark.put Object2ObjectOpenHashMap thrpt 51348095.124 ops/s
+ * MapBenchmark.putIfAbsent HashMap thrpt 66080613.503 ops/s
+ * MapBenchmark.putIfAbsent Object2ObjectOpenHashMap thrpt 62525262.585 ops/s
+ * MapBenchmark.replace HashMap thrpt 63781845.155 ops/s
+ * MapBenchmark.replace Object2ObjectOpenHashMap thrpt 44545188.132 ops/s
  */
 @State(Scope.Benchmark)
 @Fork(1)
@@ -50,7 +50,7 @@ public class MapBenchmark {
   public Map<Integer, Integer> map;
 
   public enum Impl {
-    HashMap, Object2ObjectOpenHashMap //, ConcurrentHashMap
+    HashMap, Object2ObjectOpenHashMap // , ConcurrentHashMap
   }
 
   @Param()
@@ -73,8 +73,8 @@ public class MapBenchmark {
         return new HashMap<>();
       case Object2ObjectOpenHashMap:
         return new Object2ObjectOpenHashMap<>();
-//      case ConcurrentHashMap:
-//        return new ConcurrentHashMap<>();
+      // case ConcurrentHashMap:
+      // return new ConcurrentHashMap<>();
       default:
         throw new IllegalStateException();
     }

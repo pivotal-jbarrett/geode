@@ -1961,10 +1961,13 @@ public class PartitionedRegionDataStore implements HasCachePerfStats {
   }
 
   public Object getLocally(final int bucketId, final Object key, final Object aCallbackArgument,
-                           final boolean disableCopyOnRead, final boolean preferCD, final ClientProxyMembershipID requestingClient,
-                           final EntryEventImpl clientEvent, final boolean returnTombstones, final boolean opScopeIsLocal)
+      final boolean disableCopyOnRead, final boolean preferCD,
+      final ClientProxyMembershipID requestingClient,
+      final EntryEventImpl clientEvent, final boolean returnTombstones,
+      final boolean opScopeIsLocal)
       throws PrimaryBucketException, ForceReattemptException, PRLocallyDestroyedException {
-      return getLocally( bucketId,   key,   aCallbackArgument, disableCopyOnRead,  preferCD,  requestingClient, clientEvent,  returnTombstones,  opScopeIsLocal, null);
+    return getLocally(bucketId, key, aCallbackArgument, disableCopyOnRead, preferCD,
+        requestingClient, clientEvent, returnTombstones, opScopeIsLocal, null);
   }
 
   /**
@@ -1982,8 +1985,10 @@ public class PartitionedRegionDataStore implements HasCachePerfStats {
    * @throws PRLocallyDestroyedException if the PartitionRegion is locally destroyed
    */
   public Object getLocally(final int bucketId, final Object key, final Object aCallbackArgument,
-                           final boolean disableCopyOnRead, final boolean preferCD, final ClientProxyMembershipID requestingClient,
-                           final EntryEventImpl clientEvent, final boolean returnTombstones, final boolean opScopeIsLocal, final KeyInfo keyInfo)
+      final boolean disableCopyOnRead, final boolean preferCD,
+      final ClientProxyMembershipID requestingClient,
+      final EntryEventImpl clientEvent, final boolean returnTombstones,
+      final boolean opScopeIsLocal, final KeyInfo keyInfo)
       throws PrimaryBucketException, ForceReattemptException, PRLocallyDestroyedException {
     final BucketRegion bucketRegion = getInitializedBucketForId(key, bucketId);
     // check for primary (when a loader is present) done deeper in the BucketRegion

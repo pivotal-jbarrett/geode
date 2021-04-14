@@ -30,37 +30,37 @@ import org.openjdk.jmh.annotations.State;
 
 
 /**
- * Benchmark                                                        (impl)   Mode  Cnt         Score   Error  Units
- * ByteBufBenchmark.equalsWithPooledDirectByteBuf           WrappedByteBuf  thrpt       12961392.399          ops/s
- * ByteBufBenchmark.equalsWithPooledDirectByteBuf    UnpooledDirectByteBuf  thrpt       21228199.586          ops/s
- * ByteBufBenchmark.equalsWithPooledDirectByteBuf      PooledDirectByteBuf  thrpt       21641407.485          ops/s
- * ByteBufBenchmark.equalsWithPooledDirectByteBuf      UnpooledHeapByteByf  thrpt       22641954.299          ops/s
- * ByteBufBenchmark.equalsWithPooledDirectByteBuf        PooledHeapByteBuf  thrpt       17313972.171          ops/s
- * ByteBufBenchmark.equalsWithPooledHeapByteBuf             WrappedByteBuf  thrpt       12140482.481          ops/s
- * ByteBufBenchmark.equalsWithPooledHeapByteBuf      UnpooledDirectByteBuf  thrpt       20557705.808          ops/s
- * ByteBufBenchmark.equalsWithPooledHeapByteBuf        PooledDirectByteBuf  thrpt       19153928.742          ops/s
- * ByteBufBenchmark.equalsWithPooledHeapByteBuf        UnpooledHeapByteByf  thrpt       18627883.889          ops/s
- * ByteBufBenchmark.equalsWithPooledHeapByteBuf          PooledHeapByteBuf  thrpt       19417939.694          ops/s
- * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf         WrappedByteBuf  thrpt       13851773.640          ops/s
- * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf  UnpooledDirectByteBuf  thrpt       20627124.982          ops/s
- * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf    PooledDirectByteBuf  thrpt       18939992.995          ops/s
- * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf    UnpooledHeapByteByf  thrpt       22495306.612          ops/s
- * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf      PooledHeapByteBuf  thrpt       18162390.185          ops/s
- * ByteBufBenchmark.equalsWithUnpooledHeapByteByf           WrappedByteBuf  thrpt       14060410.560          ops/s
- * ByteBufBenchmark.equalsWithUnpooledHeapByteByf    UnpooledDirectByteBuf  thrpt       20405674.801          ops/s
- * ByteBufBenchmark.equalsWithUnpooledHeapByteByf      PooledDirectByteBuf  thrpt       22916023.257          ops/s
- * ByteBufBenchmark.equalsWithUnpooledHeapByteByf      UnpooledHeapByteByf  thrpt       23242293.082          ops/s
- * ByteBufBenchmark.equalsWithUnpooledHeapByteByf        PooledHeapByteBuf  thrpt       20303997.744          ops/s
- * ByteBufBenchmark.equalsWithWrappedByteBuf                WrappedByteBuf  thrpt       11157415.696          ops/s
- * ByteBufBenchmark.equalsWithWrappedByteBuf         UnpooledDirectByteBuf  thrpt       13870803.149          ops/s
- * ByteBufBenchmark.equalsWithWrappedByteBuf           PooledDirectByteBuf  thrpt       12252969.929          ops/s
- * ByteBufBenchmark.equalsWithWrappedByteBuf           UnpooledHeapByteByf  thrpt       14889824.234          ops/s
- * ByteBufBenchmark.equalsWithWrappedByteBuf             PooledHeapByteBuf  thrpt       13234763.200          ops/s
- * ByteBufBenchmark.hashCode                                WrappedByteBuf  thrpt       26781927.307          ops/s
- * ByteBufBenchmark.hashCode                         UnpooledDirectByteBuf  thrpt       26910858.663          ops/s
- * ByteBufBenchmark.hashCode                           PooledDirectByteBuf  thrpt       27803378.996          ops/s
- * ByteBufBenchmark.hashCode                           UnpooledHeapByteByf  thrpt       25546758.117          ops/s
- * ByteBufBenchmark.hashCode                             PooledHeapByteBuf  thrpt       26352572.423          ops/s
+ * Benchmark (impl) Mode Cnt Score Error Units
+ * ByteBufBenchmark.equalsWithPooledDirectByteBuf WrappedByteBuf thrpt 12961392.399 ops/s
+ * ByteBufBenchmark.equalsWithPooledDirectByteBuf UnpooledDirectByteBuf thrpt 21228199.586 ops/s
+ * ByteBufBenchmark.equalsWithPooledDirectByteBuf PooledDirectByteBuf thrpt 21641407.485 ops/s
+ * ByteBufBenchmark.equalsWithPooledDirectByteBuf UnpooledHeapByteByf thrpt 22641954.299 ops/s
+ * ByteBufBenchmark.equalsWithPooledDirectByteBuf PooledHeapByteBuf thrpt 17313972.171 ops/s
+ * ByteBufBenchmark.equalsWithPooledHeapByteBuf WrappedByteBuf thrpt 12140482.481 ops/s
+ * ByteBufBenchmark.equalsWithPooledHeapByteBuf UnpooledDirectByteBuf thrpt 20557705.808 ops/s
+ * ByteBufBenchmark.equalsWithPooledHeapByteBuf PooledDirectByteBuf thrpt 19153928.742 ops/s
+ * ByteBufBenchmark.equalsWithPooledHeapByteBuf UnpooledHeapByteByf thrpt 18627883.889 ops/s
+ * ByteBufBenchmark.equalsWithPooledHeapByteBuf PooledHeapByteBuf thrpt 19417939.694 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf WrappedByteBuf thrpt 13851773.640 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf UnpooledDirectByteBuf thrpt 20627124.982 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf PooledDirectByteBuf thrpt 18939992.995 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf UnpooledHeapByteByf thrpt 22495306.612 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledDirectByteBuf PooledHeapByteBuf thrpt 18162390.185 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledHeapByteByf WrappedByteBuf thrpt 14060410.560 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledHeapByteByf UnpooledDirectByteBuf thrpt 20405674.801 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledHeapByteByf PooledDirectByteBuf thrpt 22916023.257 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledHeapByteByf UnpooledHeapByteByf thrpt 23242293.082 ops/s
+ * ByteBufBenchmark.equalsWithUnpooledHeapByteByf PooledHeapByteBuf thrpt 20303997.744 ops/s
+ * ByteBufBenchmark.equalsWithWrappedByteBuf WrappedByteBuf thrpt 11157415.696 ops/s
+ * ByteBufBenchmark.equalsWithWrappedByteBuf UnpooledDirectByteBuf thrpt 13870803.149 ops/s
+ * ByteBufBenchmark.equalsWithWrappedByteBuf PooledDirectByteBuf thrpt 12252969.929 ops/s
+ * ByteBufBenchmark.equalsWithWrappedByteBuf UnpooledHeapByteByf thrpt 14889824.234 ops/s
+ * ByteBufBenchmark.equalsWithWrappedByteBuf PooledHeapByteBuf thrpt 13234763.200 ops/s
+ * ByteBufBenchmark.hashCode WrappedByteBuf thrpt 26781927.307 ops/s
+ * ByteBufBenchmark.hashCode UnpooledDirectByteBuf thrpt 26910858.663 ops/s
+ * ByteBufBenchmark.hashCode PooledDirectByteBuf thrpt 27803378.996 ops/s
+ * ByteBufBenchmark.hashCode UnpooledHeapByteByf thrpt 25546758.117 ops/s
+ * ByteBufBenchmark.hashCode PooledHeapByteBuf thrpt 26352572.423 ops/s
  *
  */
 @State(Scope.Benchmark)
@@ -82,7 +82,11 @@ public class ByteBufBenchmark {
   public ByteBuf buffer;
 
   public enum Impl {
-    WrappedByteBuf, UnpooledDirectByteBuf, PooledDirectByteBuf, UnpooledHeapByteByf, PooledHeapByteBuf
+    WrappedByteBuf,
+    UnpooledDirectByteBuf,
+    PooledDirectByteBuf,
+    UnpooledHeapByteByf,
+    PooledHeapByteBuf
   }
 
   @Param()

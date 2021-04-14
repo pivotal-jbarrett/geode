@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.logging.log4j.Logger;
 import sun.nio.ch.DirectBuffer;
 
-import org.apache.geode.InternalGemFireException;
 import org.apache.geode.annotations.VisibleForTesting;
 import org.apache.geode.distributed.internal.DMStats;
 import org.apache.geode.distributed.internal.DistributionConfig;

@@ -38,7 +38,6 @@ import org.apache.geode.distributed.DistributedSystem;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
 import org.apache.geode.internal.HeapDataOutputStream;
 import org.apache.geode.internal.InternalDataSerializer;
-import org.apache.geode.internal.cache.event.DistributedEventTracker;
 import org.apache.geode.internal.cache.ha.HARegionQueue;
 import org.apache.geode.internal.cache.ha.ThreadIdentifier;
 import org.apache.geode.internal.cache.tier.sockets.ClientProxyMembershipID;
@@ -290,7 +289,7 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
 
   public ThreadIdentifier getThreadIdentifier() {
     if (null == threadIdentifier) {
-      threadIdentifier =  new ThreadIdentifier(membershipID, threadID);
+      threadIdentifier = new ThreadIdentifier(membershipID, threadID);
     }
     return threadIdentifier;
   }
@@ -657,7 +656,8 @@ public class EventID implements DataSerializableFixedID, Serializable, Externali
 
   }
 
-  public static void writeOptimizedByteArrayForEventID(final long threadId, final long sequenceId, final DataOutput out)
+  public static void writeOptimizedByteArrayForEventID(final long threadId, final long sequenceId,
+      final DataOutput out)
       throws IOException {
 
     final int threadIdLength = getByteSizeForValue(threadId);

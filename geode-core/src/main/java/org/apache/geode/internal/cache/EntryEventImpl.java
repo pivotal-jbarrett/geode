@@ -1102,7 +1102,8 @@ public class EntryEventImpl implements InternalEntryEvent, InternalCacheEvent,
    *
    * @return the value returned from invoking the function
    *
-   * @deprecated use {@link #callWithOffHeapLock(Object, BiFunction, Object)} to avoid capture allocation
+   * @deprecated use {@link #callWithOffHeapLock(Object, BiFunction, Object)} to avoid capture
+   *             allocation
    */
   @Deprecated
   private <T, R> R callWithOffHeapLock(T value, Function<T, R> function) {

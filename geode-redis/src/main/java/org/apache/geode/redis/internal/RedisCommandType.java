@@ -24,7 +24,6 @@ import static org.apache.geode.redis.internal.RedisConstants.ERROR_SYNTAX;
 import java.nio.charset.StandardCharsets;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 
 import org.apache.geode.redis.internal.ParameterRequirements.EvenParameterRequirements;
 import org.apache.geode.redis.internal.ParameterRequirements.ExactParameterRequirements;
@@ -124,7 +123,6 @@ import org.apache.geode.redis.internal.executor.string.SetExecutor;
 import org.apache.geode.redis.internal.executor.string.SetNXExecutor;
 import org.apache.geode.redis.internal.executor.string.SetRangeExecutor;
 import org.apache.geode.redis.internal.executor.string.StrlenExecutor;
-import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -443,8 +441,7 @@ public enum RedisCommandType {
             return HSET;
           }
         }
-      }
-      else if ('G' == c || 'g' == c) {
+      } else if ('G' == c || 'g' == c) {
         c = asciiString.getByte(2);
         if ('E' == c || 'e' == c) {
           c = asciiString.getByte(3);
@@ -506,10 +503,10 @@ public enum RedisCommandType {
   }
 
   public ByteBuf executeCommand2(Command command,
-                                 ExecutionHandlerContext executionHandlerContext) {
+      ExecutionHandlerContext executionHandlerContext) {
 
     // TODO jabarrett - check the parts.
-//    parameterRequirements.checkParameters(command, executionHandlerContext);
+    // parameterRequirements.checkParameters(command, executionHandlerContext);
 
     return executor.executeCommand2(command, executionHandlerContext);
   }

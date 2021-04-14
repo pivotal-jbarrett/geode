@@ -74,7 +74,7 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
       bytesRead += in.readerIndex() - startReadIndex;
       out.add(c);
     } while (in.isReadable()); // Try to take advantage of pipelining if it is being used
-    
+
     redisStats.incNetworkBytesRead(bytesRead);
   }
 
@@ -88,7 +88,8 @@ public class ByteToCommandDecoder extends ByteToMessageDecoder {
 
     final byte firstB = buffer.readByte();
     if (firstB != arrayID) {
-      throw new RedisCommandParserException("Expected: " + (char) arrayID + " Actual: " + (char) firstB);
+      throw new RedisCommandParserException(
+          "Expected: " + (char) arrayID + " Actual: " + (char) firstB);
     }
 
     final List<ByteBuf> commandElems = parseArray(buffer);

@@ -28,7 +28,6 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 
 import org.apache.geode.redis.internal.executor.RedisResponse;
-import org.apache.geode.redis.internal.netty.Coder;
 import org.apache.geode.redis.internal.netty.Command;
 import org.apache.geode.redis.internal.netty.ExecutionHandlerContext;
 
@@ -66,7 +65,7 @@ public class HSetExecutor extends HashExecutor {
     Map<ByteBuf, ByteBuf> hash = cache.get(key);
 
     if (null == hash) {
-      hash = new HashMap<>((size-2) / 2);
+      hash = new HashMap<>((size - 2) / 2);
       cache.put(copiedBuffer(key), hash);
     }
 
@@ -88,7 +87,7 @@ public class HSetExecutor extends HashExecutor {
 
   static ByteBuf copiedBuffer(final ByteBuf buffer) {
     // heap buffers
-//    return Unpooled.copiedBuffer(buffer);
+    // return Unpooled.copiedBuffer(buffer);
 
     // direct buffers
     final int readableBytes = buffer.readableBytes();
@@ -101,7 +100,7 @@ public class HSetExecutor extends HashExecutor {
     return Unpooled.EMPTY_BUFFER;
   }
 
-  static final int RESP_INTEGER_CAPACITY = 1 /*:*/ + 11 /*int*/ + 2 /*crlf*/;
+  static final int RESP_INTEGER_CAPACITY = 1 /* : */ + 11 /* int */ + 2 /* crlf */;
 
   static ByteBuf toRespInteger(final int value, final ByteBufAllocator byteBufAllocator) {
     final ByteBuf buffer = byteBufAllocator.buffer(RESP_INTEGER_CAPACITY, RESP_INTEGER_CAPACITY);

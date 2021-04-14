@@ -1545,12 +1545,12 @@ public class GMSMembership<ID extends MemberIdentifier> implements Membership<ID
    */
   @Override
   public boolean isSurpriseMember(ID m) {
-      if (surpriseMembers.containsKey(m)) {
-        long birthTime = surpriseMembers.get(m).longValue();
-        long now = System.currentTimeMillis();
-        return (birthTime >= (now - this.surpriseMemberTimeout));
-      }
-      return false;
+    if (surpriseMembers.containsKey(m)) {
+      long birthTime = surpriseMembers.get(m).longValue();
+      long now = System.currentTimeMillis();
+      return (birthTime >= (now - this.surpriseMemberTimeout));
+    }
+    return false;
   }
 
   /**

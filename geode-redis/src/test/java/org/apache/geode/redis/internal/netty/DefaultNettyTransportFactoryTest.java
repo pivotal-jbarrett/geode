@@ -30,7 +30,8 @@ public class DefaultNettyTransportFactoryTest {
   public void throwsIfInvalidProperty() {
     final Properties properties = new Properties();
     properties.setProperty(KEY, "some.class.that.does.not.exist");
-    assertThatThrownBy(() -> DefaultNettyTransportFactory.fromProperties(properties)).isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> DefaultNettyTransportFactory.fromProperties(properties))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

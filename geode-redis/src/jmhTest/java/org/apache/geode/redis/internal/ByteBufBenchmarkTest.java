@@ -1,7 +1,6 @@
 package org.apache.geode.redis.internal;
 
 
-import static io.netty.buffer.Unpooled.wrappedBuffer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.Test;
@@ -14,12 +13,18 @@ public class ByteBufBenchmarkTest {
     byteBufBenchmark.impl = ByteBufBenchmark.Impl.PooledDirectByteBuf;
     byteBufBenchmark.setup();
 
-    assertThat(byteBufBenchmark.buffer.readableBytes()).isEqualTo(ByteBufBenchmark.byteArray.length);
-    assertThat(ByteBufBenchmark.wrappedByteBuf.readableBytes()).isEqualTo(ByteBufBenchmark.byteArray.length);
-    assertThat(ByteBufBenchmark.unpooledDirectByteBuf.readableBytes()).isEqualTo(ByteBufBenchmark.byteArray.length);
-    assertThat(ByteBufBenchmark.pooledDirectByteBuf.readableBytes()).isEqualTo(ByteBufBenchmark.byteArray.length);
-    assertThat(ByteBufBenchmark.unpooledHeapByteByf.readableBytes()).isEqualTo(ByteBufBenchmark.byteArray.length);
-    assertThat(ByteBufBenchmark.pooledHeapByteBuf.readableBytes()).isEqualTo(ByteBufBenchmark.byteArray.length);
+    assertThat(byteBufBenchmark.buffer.readableBytes())
+        .isEqualTo(ByteBufBenchmark.byteArray.length);
+    assertThat(ByteBufBenchmark.wrappedByteBuf.readableBytes())
+        .isEqualTo(ByteBufBenchmark.byteArray.length);
+    assertThat(ByteBufBenchmark.unpooledDirectByteBuf.readableBytes())
+        .isEqualTo(ByteBufBenchmark.byteArray.length);
+    assertThat(ByteBufBenchmark.pooledDirectByteBuf.readableBytes())
+        .isEqualTo(ByteBufBenchmark.byteArray.length);
+    assertThat(ByteBufBenchmark.unpooledHeapByteByf.readableBytes())
+        .isEqualTo(ByteBufBenchmark.byteArray.length);
+    assertThat(ByteBufBenchmark.pooledHeapByteBuf.readableBytes())
+        .isEqualTo(ByteBufBenchmark.byteArray.length);
   }
 
   @Test
@@ -41,11 +46,16 @@ public class ByteBufBenchmarkTest {
     byteBufBenchmark.impl = ByteBufBenchmark.Impl.PooledDirectByteBuf;
     byteBufBenchmark.setup();
 
-    assertThat(byteBufBenchmark.buffer.hashCode()).isEqualTo(ByteBufBenchmark.wrappedByteBuf.hashCode());
-    assertThat(byteBufBenchmark.buffer.hashCode()).isEqualTo(ByteBufBenchmark.unpooledDirectByteBuf.hashCode());
-    assertThat(byteBufBenchmark.buffer.hashCode()).isEqualTo(ByteBufBenchmark.pooledDirectByteBuf.hashCode());
-    assertThat(byteBufBenchmark.buffer.hashCode()).isEqualTo(ByteBufBenchmark.unpooledHeapByteByf.hashCode());
-    assertThat(byteBufBenchmark.buffer.hashCode()).isEqualTo(ByteBufBenchmark.pooledHeapByteBuf.hashCode());
+    assertThat(byteBufBenchmark.buffer.hashCode())
+        .isEqualTo(ByteBufBenchmark.wrappedByteBuf.hashCode());
+    assertThat(byteBufBenchmark.buffer.hashCode())
+        .isEqualTo(ByteBufBenchmark.unpooledDirectByteBuf.hashCode());
+    assertThat(byteBufBenchmark.buffer.hashCode())
+        .isEqualTo(ByteBufBenchmark.pooledDirectByteBuf.hashCode());
+    assertThat(byteBufBenchmark.buffer.hashCode())
+        .isEqualTo(ByteBufBenchmark.unpooledHeapByteByf.hashCode());
+    assertThat(byteBufBenchmark.buffer.hashCode())
+        .isEqualTo(ByteBufBenchmark.pooledHeapByteBuf.hashCode());
   }
 
 }

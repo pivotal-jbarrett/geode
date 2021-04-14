@@ -97,7 +97,6 @@ import org.apache.geode.internal.cache.InitialImageOperation.GIIStatus;
 import org.apache.geode.internal.cache.RegionMap.ARMLockTestHook;
 import org.apache.geode.internal.cache.control.InternalResourceManager.ResourceType;
 import org.apache.geode.internal.cache.control.MemoryEvent;
-import org.apache.geode.internal.cache.event.DistributedEventTracker;
 import org.apache.geode.internal.cache.event.EventTracker;
 import org.apache.geode.internal.cache.event.NonDistributedEventTracker;
 import org.apache.geode.internal.cache.eviction.EvictableEntry;
@@ -531,8 +530,10 @@ public class DistributedRegion extends LocalRegion implements InternalDistribute
       // in another VM
       if (event.isPossibleDuplicate() && event.getRegion().getConcurrencyChecksEnabled()
           && event.getVersionTag() == null && event.getEventId() != null) {
-        final boolean isBulkOp = event.getOperation().isPutAll() || event.getOperation().isRemoveAll();
-        final VersionTag<?> tag = FindVersionTagOperation.findVersionTag(event.getRegion(), event.getEventId(), isBulkOp);
+        final boolean isBulkOp =
+            event.getOperation().isPutAll() || event.getOperation().isRemoveAll();
+        final VersionTag<?> tag =
+            FindVersionTagOperation.findVersionTag(event.getRegion(), event.getEventId(), isBulkOp);
         event.setVersionTag(tag);
       }
     }

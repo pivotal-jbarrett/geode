@@ -151,7 +151,8 @@ public class ClusterExecutor extends AbstractExecutor {
   private RedisResponse getNodes(ExecutionHandlerContext ctx) {
     List<BucketRetrievalFunction.MemberBuckets> memberBuckets = getMemberBuckets(ctx);
 
-    final String memberId = CacheFactory.getAnyInstance().getDistributedSystem().getDistributedMember().getUniqueId();
+    final String memberId =
+        CacheFactory.getAnyInstance().getDistributedSystem().getDistributedMember().getUniqueId();
 
     StringBuilder response = new StringBuilder();
     for (MemberBuckets m : memberBuckets) {
