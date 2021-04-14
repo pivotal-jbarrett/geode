@@ -48,6 +48,8 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import io.netty.incubator.channel.uring.IOUringEventLoopGroup;
+import io.netty.incubator.channel.uring.IOUringServerSocketChannel;
 import io.netty.util.concurrent.Future;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -125,7 +127,7 @@ public class NettyRedisServer {
     ServerBootstrap serverBootstrap =
         new ServerBootstrap()
             .group(selectorGroup, workerGroup)
-            .channel(EpollServerSocketChannel.class)
+            .channel(IOUringServerSocketChannel.class)
             .childHandler(createChannelInitializer())
             .option(ChannelOption.SO_REUSEADDR, true)
             .childOption(ChannelOption.SO_SNDBUF, 1024 * 1024)
@@ -271,7 +273,7 @@ public class NettyRedisServer {
   private static EventLoopGroup createEventLoopGroup(String name, boolean isDaemon, int nThreads) {
     String fullName = "GeodeRedisServer-" + name + "Thread-";
     ThreadFactory threadFactory = new LoggingThreadFactory(fullName, isDaemon);
-    return new EpollEventLoopGroup(nThreads, threadFactory);
+    return new IOUringEventLoopGroup(nThreads, threadFactory);
   }
 
 }
