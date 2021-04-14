@@ -284,7 +284,7 @@ class DependencyConstraints implements Plugin<Project> {
       entry('annotations')
     }
 
-    dependencySet(group: 'io.netty', version: '4.1.60.Final') {
+    dependencySet(group: 'io.netty', version: '4.1.63.Final') {
       entry('netty-all')
       entry('netty-transport-native-epoll')
     }
