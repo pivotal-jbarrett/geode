@@ -82,8 +82,8 @@ public class HGetExecutor extends HashExecutor {
     return toBulkString(value, context.getByteBufAllocator());
   }
 
-  static final ByteBuf CRLF = Unpooled.directBuffer(2,2).writeByte('\r').writeByte('\n').asReadOnly();
-  static final ByteBuf NIL = Unpooled.directBuffer(5, 5 ).writeByte('$').writeByte('-').writeByte('1').writeBytes(CRLF.duplicate()).asReadOnly();
+  static final ByteBuf CRLF = Unpooled.unreleasableBuffer(Unpooled.directBuffer(2,2).writeByte('\r').writeByte('\n'));
+  static final ByteBuf NIL = Unpooled.unreleasableBuffer(Unpooled.directBuffer(5, 5 ).writeByte('$').writeByte('-').writeByte('1').writeBytes(CRLF.duplicate()));
 
   static final int RESP_BULK_STRING_COMPONENTS = 4; /*header, crlf, value, crlf*/
   static final int RESP_BULK_STRING_HEADER_CAPACITY = 1 /*$*/ + 11 /*int*/;
@@ -91,9 +91,9 @@ public class HGetExecutor extends HashExecutor {
   static ByteBuf toBulkString(final ByteBuf value, final ByteBufAllocator byteBufAllocator) {
     final CompositeByteBuf buffer = byteBufAllocator.compositeBuffer(RESP_BULK_STRING_COMPONENTS);
     buffer.addComponent(true, HSetExecutor.writeToString(value.readableBytes(), byteBufAllocator.directBuffer(RESP_BULK_STRING_HEADER_CAPACITY,RESP_BULK_STRING_HEADER_CAPACITY).writeByte(Coder.BULK_STRING_ID)));
-    buffer.addComponent(true, CRLF.retain());
+    buffer.addComponent(true, CRLF);
     buffer.addComponent(true, value.retain());
-    buffer.addComponent(true, CRLF.retain());
+    buffer.addComponent(true, CRLF);
     return buffer;
   }
 }
