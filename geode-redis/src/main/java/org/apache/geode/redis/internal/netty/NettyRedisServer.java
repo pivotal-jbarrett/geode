@@ -276,7 +276,7 @@ public class NettyRedisServer {
   private static EventLoopGroup createEventLoopGroup(String name, boolean isDaemon, int nThreads) {
     String fullName = "GeodeRedisServer-" + name + "Thread-";
     ThreadFactory threadFactory = new LoggingThreadFactory(fullName, isDaemon);
-    return new IOUringEventLoopGroup(nThreads, threadFactory);
+    return new IOUringEventLoopGroup(nThreads, threadFactory, 1 << 14, 25);
   }
 
 }
