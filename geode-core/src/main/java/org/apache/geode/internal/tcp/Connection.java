@@ -241,14 +241,16 @@ public class Connection implements Runnable {
    * Maps ConflatedKey instances to ConflatedKey instance. Note that even though the key and value
    * for an entry is the map will always be "equal" they will not always be "==".
    */
-  private final Map conflatedKeys = new HashMap();
+  private final Map<ConflationKey, ConflationKey> conflatedKeys = new HashMap<>();
 
   /**
    * NOTE: LinkedBlockingQueue has a bug in which removes from the queue
    * cause future offer to increase the size without adding anything to the queue.
    * So I've changed from this backport class to a java.util.LinkedList
+   *
+   * TODO jbarrett - this can be replaced with LinkedBlockingQueue now
    */
-  private final LinkedList outgoingQueue = new LinkedList();
+  private final LinkedList<Object> outgoingQueue = new LinkedList<>();
 
   /**
    * Number of bytes in the outgoingQueue. Used to control capacity.
@@ -311,7 +313,7 @@ public class Connection implements Runnable {
    * other connections participating in the current transmission. we notify them if ackSATimeout
    * expires to keep all members from generating alerts when only one is slow
    */
-  private List ackConnectionGroup;
+  private List<?> ackConnectionGroup;
 
   /** name of thread that we're currently performing an operation in (may be null) */
   private String ackThreadName;
@@ -349,7 +351,7 @@ public class Connection implements Runnable {
   /**
    * used to map a msgId to a MsgDestreamer which are used for destreaming chunked messages
    */
-  private HashMap destreamerMap;
+  private HashMap<Short, MsgDestreamer> destreamerMap;
 
   private boolean directAck;
 
@@ -1138,8 +1140,8 @@ public class Connection implements Runnable {
   }
 
   private void setRemoteAddr(InternalDistributedMember m) {
-    this.remoteAddr = this.owner.getDM().getCanonicalId(m);
-    Membership<InternalDistributedMember> mgr = this.conduit.getMembership();
+    remoteAddr = owner.getDM().getCanonicalId(m);
+    Membership<InternalDistributedMember> mgr = conduit.getMembership();
     mgr.addSurpriseMember(m);
   }
 
@@ -1838,9 +1840,8 @@ public class Connection implements Runnable {
         idleMsgDestreamer = null;
       }
       if (destreamerMap != null) {
-        for (Object o : destreamerMap.values()) {
-          MsgDestreamer md = (MsgDestreamer) o;
-          md.close();
+        for (MsgDestreamer msgDestreamer : destreamerMap.values()) {
+          msgDestreamer.close();
         }
         destreamerMap = null;
       }
@@ -1850,10 +1851,10 @@ public class Connection implements Runnable {
   private MsgDestreamer obtainMsgDestreamer(short msgId, final KnownVersion v) {
     synchronized (destreamerLock) {
       if (destreamerMap == null) {
-        destreamerMap = new HashMap();
+        destreamerMap = new HashMap<>();
       }
       Short key = msgId;
-      MsgDestreamer result = (MsgDestreamer) destreamerMap.get(key);
+      MsgDestreamer result = destreamerMap.get(key);
       if (result == null) {
         result = idleMsgDestreamer;
         if (result != null) {
@@ -1935,7 +1936,7 @@ public class Connection implements Runnable {
    * false then "release" the connection.
    */
   public void setInUse(boolean use, long startTime, long ackWaitThreshold, long ackSAThreshold,
-      List connectionGroup) {
+      List<?> connectionGroup) {
     // just do the following; EVEN if the connection has been closed
     synchronized (this) {
       if (use && (ackWaitThreshold > 0 || ackSAThreshold > 0)) {
@@ -1999,22 +2000,18 @@ public class Connection implements Runnable {
             if (socketInUse) {
               switch (connState) {
                 case Connection.STATE_IDLE:
+                case Connection.STATE_POST_SENDING:
+                case Connection.STATE_RECEIVED_ACK:
                   break;
                 case Connection.STATE_SENDING:
-                  sentAlert = doSevereAlertProcessing();
-                  break;
-                case Connection.STATE_POST_SENDING:
-                  break;
                 case Connection.STATE_READING_ACK:
                   sentAlert = doSevereAlertProcessing();
-                  break;
-                case Connection.STATE_RECEIVED_ACK:
                   break;
                 default:
               }
             }
           }
-          List group = ackConnectionGroup;
+          List<?> group = ackConnectionGroup;
           if (sentAlert && group != null) {
             // since transmission and ack-receipt are performed serially, we don't want to complain
             // about all receivers out just because one was slow. We therefore reset the time stamps
@@ -2113,12 +2110,11 @@ public class Connection implements Runnable {
         if (ck != null) {
           if (ck.allowsConflation()) {
             objToQueue = ck;
-            Object oldValue = conflatedKeys.put(ck, ck);
+            ConflationKey oldValue = conflatedKeys.put(ck, ck);
             if (oldValue != null) {
-              ConflationKey oldck = (ConflationKey) oldValue;
-              ByteBuffer oldBuffer = oldck.getBuffer();
+              ByteBuffer oldBuffer = oldValue.getBuffer();
               // need to always do this to allow old buffer to be gc'd
-              oldck.setBuffer(null);
+              oldValue.setBuffer(null);
 
               // remove the conflated key from current spot in queue
 
@@ -2131,7 +2127,7 @@ public class Connection implements Runnable {
               // and if it has the same identity of our last thing then
               // remove it
 
-              if (outgoingQueue.getLast() == oldck) {
+              if (outgoingQueue.getLast() == oldValue) {
                 outgoingQueue.removeLast();
               }
               int oldBytes = oldBuffer.remaining();
@@ -2452,11 +2448,8 @@ public class Connection implements Runnable {
       return true;
     }
     // or the receiver does not allow queuing
-    if (asyncDistributionTimeout == 0) {
-      return true;
-    }
     // OTHERWISE return false and let caller send async
-    return false;
+    return asyncDistributionTimeout == 0;
   }
 
   private void writeAsync(SocketChannel channel, ByteBuffer buffer, boolean forceAsync,
@@ -2690,7 +2683,7 @@ public class Connection implements Runnable {
       int len;
 
       // (we have to lock here to protect between reading header and message body)
-      try (final ByteBufferSharing _unused = ioFilter.getUnwrappedBuffer()) {
+      try (final ByteBufferSharing ignored = ioFilter.getUnwrappedBuffer()) {
         Header header = msgReader.readHeader();
 
         if (header.getMessageType() == NORMAL_MSG_TYPE) {
@@ -3324,7 +3317,7 @@ public class Connection implements Runnable {
   public String toString() {
     return remoteAddr + "(uid=" + uniqueId + ")"
         + (remoteVersion != null && remoteVersion != KnownVersion.CURRENT
-            ? "(v" + remoteVersion.toString() + ')' : "");
+            ? "(v" + remoteVersion + ')' : "");
   }
 
   /**
