@@ -15,6 +15,7 @@
 package org.apache.geode.internal.tcp;
 
 import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.lang.ThreadLocal.withInitial;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -548,12 +549,14 @@ public class Connection implements Runnable {
     return P2P_CONNECT_TIMEOUT;
   }
 
-  // return true if this thread is a reader thread
+  /**
+   * @return true if this thread is a reader thread, otherwise false
+   */
   private static boolean tipDomino() {
     if (DOMINO_THREAD_OWNED_SOCKETS) {
       // mark this thread as one who wants to send ALL on TO sockets
       ConnectionTable.threadWantsOwnResources();
-      isDominoThread.set(Boolean.TRUE);
+      isDominoThread.set(TRUE);
       return true;
     }
     return false;
@@ -2876,21 +2879,15 @@ public class Connection implements Runnable {
       remoteVersion = Versioning.getKnownVersionOrDefault(
           Versioning.getVersion(VersioningIO.readOrdinal(dis)),
           null);
-      int dominoNumber = 0;
-      if (remoteVersion == null
-          || remoteVersion.isNotOlderThan(KnownVersion.GFE_80)) {
-        dominoNumber = dis.readInt();
-        if (sharedResource) {
-          dominoNumber = 0;
-        }
-        dominoCount.set(dominoNumber);
-      }
+      final int dominoNumber = readDominoNumber(dis, sharedResource);
+      dominoCount.set(dominoNumber);
       if (!sharedResource) {
+        // TODO jbarrett - what is a domino. It's counted but never read.
         if (tipDomino()) {
           logger.info("thread owned receiver forcing itself to send on thread owned sockets");
           // if domino count is >= 2 use shared resources.
           // Also see DistributedCacheOperation#supportsDirectAck
-        } else { // if (dominoNumber < 2) {
+        } else {
           ConnectionTable.threadWantsOwnResources();
           if (logger.isDebugEnabled()) {
             logger.debug(
@@ -2916,8 +2913,8 @@ public class Connection implements Runnable {
           remoteVersion != null ? " (" + remoteVersion + ')' : "");
     }
     try {
-      String authInit = System.getProperty(SECURITY_SYSTEM_PREFIX + SECURITY_PEER_AUTH_INIT);
-      boolean isSecure = authInit != null && !authInit.isEmpty();
+      final String authInit = System.getProperty(SECURITY_SYSTEM_PREFIX + SECURITY_PEER_AUTH_INIT);
+      final boolean isSecure = authInit != null && !authInit.isEmpty();
 
       if (isSecure) {
         if (owner.getConduit().waitForMembershipCheck(remoteAddr)) {
@@ -2949,6 +2946,15 @@ public class Connection implements Runnable {
       return true;
     }
     return false;
+  }
+
+  static int readDominoNumber(final DataInput dis, final boolean sharedResource)
+      throws IOException {
+    final int dominoNumber = dis.readInt();
+    if (sharedResource) {
+      return 0;
+    }
+    return dominoNumber;
   }
 
   static void checkHandshakeInitialByte(@NotNull final DataInput dis) throws IOException {

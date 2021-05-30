@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.DataInput;
@@ -184,6 +185,9 @@ public class ConnectionTest {
     when(dataInput.readByte()).thenReturn((byte) 0);
 
     Connection.checkHandshakeInitialByte(dataInput);
+
+    verify(dataInput).readByte();
+    verifyNoMoreInteractions(dataInput);
   }
 
   @Test
@@ -193,6 +197,9 @@ public class ConnectionTest {
 
     assertThatThrownBy(() -> Connection.checkHandshakeInitialByte(dataInput))
         .isInstanceOf(IllegalStateException.class);
+
+    verify(dataInput).readByte();
+    verifyNoMoreInteractions(dataInput);
   }
 
   @Test
@@ -201,6 +208,9 @@ public class ConnectionTest {
     when(dataInput.readByte()).thenReturn(Connection.HANDSHAKE_VERSION);
 
     Connection.checkHandshakeVersion(dataInput);
+
+    verify(dataInput).readByte();
+    verifyNoMoreInteractions(dataInput);
   }
 
   @Test
@@ -210,6 +220,33 @@ public class ConnectionTest {
 
     assertThatThrownBy(() -> Connection.checkHandshakeVersion(dataInput))
         .isInstanceOf(IllegalStateException.class);
+
+    verify(dataInput).readByte();
+    verifyNoMoreInteractions(dataInput);
+  }
+
+  @Test
+  public void readDominoNumberSharedResourceTrueReturns0() throws IOException {
+    final DataInput dataInput = mock(DataInput.class);
+    when(dataInput.readInt()).thenReturn(1);
+
+    final int dominoNumber = Connection.readDominoNumber(dataInput, true);
+    assertThat(dominoNumber).isEqualTo(0);
+
+    verify(dataInput).readInt();
+    verifyNoMoreInteractions(dataInput);
+  }
+
+  @Test
+  public void readDominoNumberSharedResourceFalseReturnsValue() throws IOException {
+    final DataInput dataInput = mock(DataInput.class);
+    when(dataInput.readInt()).thenReturn(1);
+
+    final int dominoNumber = Connection.readDominoNumber(dataInput, false);
+    assertThat(dominoNumber).isEqualTo(1);
+
+    verify(dataInput).readInt();
+    verifyNoMoreInteractions(dataInput);
   }
 
 }
