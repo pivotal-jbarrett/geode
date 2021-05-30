@@ -15,7 +15,9 @@
 package org.apache.geode.internal.tcp;
 
 import static java.lang.Boolean.FALSE;
+import static java.lang.String.format;
 import static java.lang.ThreadLocal.withInitial;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.geode.distributed.ConfigurationProperties.SECURITY_PEER_AUTH_INIT;
 import static org.apache.geode.distributed.internal.DistributionConfigImpl.SECURITY_SYSTEM_PREFIX;
 import static org.apache.geode.internal.monitoring.ThreadsMonitoring.Mode.P2PReaderExecutor;
@@ -48,6 +50,7 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 
 import org.apache.geode.CancelException;
 import org.apache.geode.SerializationException;
@@ -357,8 +360,11 @@ public class Connection implements Runnable {
 
   private boolean asyncMode;
 
-  /** is this connection used for serial message delivery? */
-  boolean preserveOrder;
+  /**
+   * Is this connection used for serial message delivery?
+   * May be mutated during {@link #readHandshakeForReceiver(DataInput)}
+   */
+  private boolean preserveOrder;
 
   /** number of messages sent on this connection */
   private long messagesSent;
@@ -404,15 +410,14 @@ public class Connection implements Runnable {
 
   private static final int HANDSHAKE_TIMEOUT_MS =
       Integer.getInteger("p2p.handshakeTimeoutMs", 59000);
-  // private static final byte HANDSHAKE_VERSION = 1; // 501
-  // public static final byte HANDSHAKE_VERSION = 2; // cbb5x_PerfScale
-  // public static final byte HANDSHAKE_VERSION = 3; // durable_client
-  // public static final byte HANDSHAKE_VERSION = 4; // dataSerialMay19
-  // public static final byte HANDSHAKE_VERSION = 5; // split-brain bits
-  // public static final byte HANDSHAKE_VERSION = 6; // direct ack changes
-  // NOTICE: handshake_version should not be changed anymore. Use the gemfire version transmitted
-  // with the handshake bits and handle old handshakes based on that
-  private static final byte HANDSHAKE_VERSION = 7; // product version exchange during handshake
+
+  /**
+   * product version exchange during handshake.
+   *
+   * NOTICE: handshake_version should not be changed anymore. Use the gemfire version transmitted
+   * with the handshake bits and handle old handshakes based on that
+   */
+  static final byte HANDSHAKE_VERSION = 7;
 
   private final AtomicBoolean asyncCloseCalled = new AtomicBoolean();
 
@@ -686,7 +691,7 @@ public class Connection implements Runnable {
 
   static int calcHdrSize(int byteSize) {
     if (byteSize > MAX_MSG_SIZE) {
-      throw new IllegalStateException(String.format("tcp message exceeded max size of %s",
+      throw new IllegalStateException(format("tcp message exceeded max size of %s",
           MAX_MSG_SIZE));
     }
     int hdrSize = byteSize;
@@ -702,7 +707,7 @@ public class Connection implements Runnable {
     byte ver = (byte) (hdrSize >> 24);
     if (ver != HANDSHAKE_VERSION) {
       throw new IOException(
-          String.format(
+          format(
               "Detected wrong version of GemFire product during handshake. Expected %s but found %s",
               HANDSHAKE_VERSION, ver));
     }
@@ -769,14 +774,14 @@ public class Connection implements Runnable {
                 // to occur in the handshake threads instead of causing failures in
                 // connection-formation. So, we need to initiate suspect processing here
                 owner.getDM().getDistribution().suspectMember(remoteAddr,
-                    String.format(
+                    format(
                         "Connection handshake with %s timed out after waiting %s milliseconds.",
                         peerName, HANDSHAKE_TIMEOUT_MS));
               } else {
                 peerName = "socket " + socket.getRemoteSocketAddress() + ":" + socket.getPort();
               }
               throw new ConnectionException(
-                  String.format(
+                  format(
                       "Connection handshake with %s timed out after waiting %s milliseconds.",
                       peerName, HANDSHAKE_TIMEOUT_MS));
             }
@@ -1022,7 +1027,7 @@ public class Connection implements Runnable {
           t.getConduit().getCancelCriterion().checkCancelInProgress(null);
           if (giveUpOnMember(mgr, remoteAddr)) {
             throw new IOException(
-                String.format("Member %s left the group", remoteAddr));
+                format("Member %s left the group", remoteAddr));
           }
           if (!warningPrinted) {
             warningPrinted = true;
@@ -1068,7 +1073,7 @@ public class Connection implements Runnable {
               // and the socket was closed or we were sent
               // ShutdownMessage
               if (giveUpOnMember(mgr, remoteAddr)) {
-                throw new IOException(String.format("Member %s left the group", remoteAddr));
+                throw new IOException(format("Member %s left the group", remoteAddr));
               }
               t.getConduit().getCancelCriterion().checkCancelInProgress(null);
               // no success but no need to log; just retry
@@ -1125,7 +1130,7 @@ public class Connection implements Runnable {
     }
     if (conn == null) {
       throw new ConnectionException(
-          String.format("Connection: failed construction for peer %s", remoteAddr));
+          format("Connection: failed construction for peer %s", remoteAddr));
     }
     if (preserveOrder && BATCH_SENDS) {
       conn.createBatchSendBuffer();
@@ -1217,7 +1222,7 @@ public class Connection implements Runnable {
       } catch (CancelledKeyException | ClosedSelectorException e) {
         // for some reason NIO throws this runtime exception instead of an IOException on timeouts
         ConnectException c = new ConnectException(
-            String.format("Attempt timed out after %s milliseconds", connectTime));
+            format("Attempt timed out after %s milliseconds", connectTime));
         c.initCause(e);
         throw c;
       }
@@ -1573,7 +1578,7 @@ public class Connection implements Runnable {
           isReceiver ? "receiver" : "sender", ex.getMessage());
       readerShuttingDown = true;
       try {
-        requestClose(String.format("Failed initializing socket %s", ex));
+        requestClose(format("Failed initializing socket %s", ex));
       } catch (Exception ignore) {
       }
       return;
@@ -1675,14 +1680,14 @@ public class Connection implements Runnable {
           }
           readerShuttingDown = true;
           try {
-            requestClose(String.format("CacheClosed in channel read: %s", e));
+            requestClose(format("CacheClosed in channel read: %s", e));
           } catch (Exception ignored) {
           }
           return;
         } catch (ClosedChannelException e) {
           readerShuttingDown = true;
           try {
-            requestClose(String.format("ClosedChannelException in channel read: %s", e));
+            requestClose(format("ClosedChannelException in channel read: %s", e));
           } catch (Exception ignored) {
           }
           return;
@@ -1702,7 +1707,7 @@ public class Connection implements Runnable {
           }
           readerShuttingDown = true;
           try {
-            requestClose(String.format("IOException in channel read: %s", e));
+            requestClose(format("IOException in channel read: %s", e));
           } catch (Exception ignored) {
           }
           return;
@@ -1710,11 +1715,11 @@ public class Connection implements Runnable {
         } catch (Exception e) {
           owner.getConduit().getCancelCriterion().checkCancelInProgress(e);
           if (!stopped && !isSocketClosed()) {
-            logger.fatal(String.format("%s exception in channel read", p2pReaderName()), e);
+            logger.fatal(format("%s exception in channel read", p2pReaderName()), e);
           }
           readerShuttingDown = true;
           try {
-            requestClose(String.format("%s exception in channel read", e));
+            requestClose(format("%s exception in channel read", e));
           } catch (Exception ignored) {
           }
           return;
@@ -1903,7 +1908,7 @@ public class Connection implements Runnable {
   void sendPreserialized(ByteBuffer buffer, boolean cacheContentChanges,
       DistributionMessage msg) throws IOException, ConnectionException {
     if (!connected) {
-      throw new ConnectionException(String.format("Not connected to %s", remoteAddr));
+      throw new ConnectionException(format("Not connected to %s", remoteAddr));
     }
     if (batchFlusher != null) {
       batchSend(buffer);
@@ -1977,8 +1982,8 @@ public class Connection implements Runnable {
    */
   synchronized void scheduleAckTimeouts() {
     if (ackTimeoutTask == null) {
-      final long msAW = owner.getDM().getConfig().getAckWaitThreshold() * 1000L;
-      final long msSA = owner.getDM().getConfig().getAckSevereAlertThreshold() * 1000L;
+      final long msAW = SECONDS.toMillis(owner.getDM().getConfig().getAckWaitThreshold());
+      final long msSA = SECONDS.toMillis(owner.getDM().getConfig().getAckSevereAlertThreshold());
       ackTimeoutTask = new SystemTimer.SystemTimerTask() {
         @Override
         public void run2() {
@@ -2098,7 +2103,7 @@ public class Connection implements Runnable {
         if (disconnectRequested) {
           buffer.position(origBufferPos);
           // we have given up so just drop this message.
-          throw new ConnectionException(String.format("Forced disconnect sent to %s", remoteAddr));
+          throw new ConnectionException(format("Forced disconnect sent to %s", remoteAddr));
         }
         if (!force && !asyncQueuingInProgress) {
           // reset buffer since we will be sending it
@@ -2380,7 +2385,7 @@ public class Connection implements Runnable {
           }
         }
       } catch (IOException ex) {
-        String err = String.format("P2P pusher io exception for %s", this);
+        String err = format("P2P pusher io exception for %s", this);
         if (!isSocketClosed()) {
           if (logger.isDebugEnabled() && !isIgnorableIOException(ex)) {
             logger.debug(err, ex);
@@ -2391,7 +2396,7 @@ public class Connection implements Runnable {
         } catch (Exception ignore) {
         }
       } catch (CancelException ex) {
-        String err = String.format("P2P pusher %s caught CacheClosedException: %s", this, ex);
+        String err = format("P2P pusher %s caught CacheClosedException: %s", this, ex);
         logger.debug(err);
         try {
           requestClose(err);
@@ -2400,10 +2405,10 @@ public class Connection implements Runnable {
       } catch (Exception ex) {
         owner.getConduit().getCancelCriterion().checkCancelInProgress(ex);
         if (!isSocketClosed()) {
-          logger.fatal(String.format("P2P pusher exception: %s", ex), ex);
+          logger.fatal(format("P2P pusher exception: %s", ex), ex);
         }
         try {
-          requestClose(String.format("P2P pusher exception: %s", ex));
+          requestClose(format("P2P pusher exception: %s", ex));
         } catch (Exception ignore) {
         }
       } finally {
@@ -2719,7 +2724,7 @@ public class Connection implements Runnable {
       throw timeout;
     } catch (IOException e) {
       final String err =
-          String.format("ack read io exception for %s", this);
+          format("ack read io exception for %s", this);
       if (!isSocketClosed()) {
         if (logger.isDebugEnabled() && !isIgnorableIOException(e)) {
           logger.debug(err, e);
@@ -2729,7 +2734,7 @@ public class Connection implements Runnable {
         requestClose(err + ": " + e);
       } catch (Exception ignored) {
       }
-      throw new ConnectionException(String.format("Unable to read direct ack because: %s", e));
+      throw new ConnectionException(format("Unable to read direct ack because: %s", e));
     } catch (ConnectionException e) {
       owner.getConduit().getCancelCriterion().checkCancelInProgress(e);
       throw e;
@@ -2739,10 +2744,10 @@ public class Connection implements Runnable {
         logger.fatal("ack read exception", e);
       }
       try {
-        requestClose(String.format("ack read exception: %s", e));
+        requestClose(format("ack read exception: %s", e));
       } catch (Exception ignored) {
       }
-      throw new ConnectionException(String.format("Unable to read direct ack because: %s", e));
+      throw new ConnectionException(format("Unable to read direct ack because: %s", e));
     } finally {
       stats.incProcessedMessages(1L);
       accessed();
@@ -2858,22 +2863,10 @@ public class Connection implements Runnable {
     }
   }
 
-  private boolean readHandshakeForReceiver(DataInput dis) {
+  private boolean readHandshakeForReceiver(final DataInput dis) {
     try {
-      byte b = dis.readByte();
-      if (b != 0) {
-        throw new IllegalStateException(
-            String.format(
-                "Detected old version (pre 5.0.1) of GemFire or non-GemFire during handshake due to initial byte being %s",
-                b));
-      }
-      byte handshakeByte = dis.readByte();
-      if (handshakeByte != HANDSHAKE_VERSION) {
-        throw new IllegalStateException(
-            String.format(
-                "Detected wrong version of GemFire product during handshake. Expected %s but found %s",
-                HANDSHAKE_VERSION, handshakeByte));
-      }
+      checkHandshakeInitialByte(dis);
+      checkHandshakeVersion(dis);
       remoteAddr = DSFIDFactory.readInternalDistributedMember(dis);
       sharedResource = dis.readBoolean();
       preserveOrder = dis.readBoolean();
@@ -2958,6 +2951,25 @@ public class Connection implements Runnable {
     return false;
   }
 
+  static void checkHandshakeInitialByte(@NotNull final DataInput dis) throws IOException {
+    final byte initialByte = dis.readByte();
+    if (initialByte != 0) {
+      throw new IllegalStateException(
+          format("Detected non Geode peer during handshake due to initial byte being %s",
+              initialByte));
+    }
+  }
+
+  static void checkHandshakeVersion(@NotNull final DataInput dis) throws IOException {
+    final byte version = dis.readByte();
+    if (version != HANDSHAKE_VERSION) {
+      throw new IllegalStateException(
+          format(
+              "Detected wrong version of Geode product during handshake. Expected %s but found %s",
+              HANDSHAKE_VERSION, version));
+    }
+  }
+
   private boolean readMessageHeader(ByteBuffer peerDataBuffer) throws IOException {
     int headerStartPos = peerDataBuffer.position();
     messageLength = peerDataBuffer.getInt();
@@ -2975,7 +2987,7 @@ public class Connection implements Runnable {
       Integer nioMessageTypeInteger = (int) messageType;
       logger.fatal("Unknown P2P message type: {}", nioMessageTypeInteger);
       readerShuttingDown = true;
-      requestClose(String.format("Unknown P2P message type: %s",
+      requestClose(format("Unknown P2P message type: %s",
           nioMessageTypeInteger));
       return true;
     }
@@ -3454,7 +3466,7 @@ public class Connection implements Runnable {
                 } catch (IOException | ConnectionException ex) {
                   logger.fatal("Exception flushing batch send buffer: %s", ex);
                   readerShuttingDown = true;
-                  requestClose(String.format("Exception flushing batch send buffer: %s", ex));
+                  requestClose(format("Exception flushing batch send buffer: %s", ex));
                 } finally {
                   accessed();
                   socketInUse = origSocketInUse;

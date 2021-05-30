@@ -538,7 +538,7 @@ public class ConnectionTable {
       result = getThreadOwnedConnection(id, startTime, ackTimeout, ackSATimeout);
     }
     if (result != null) {
-      Assert.assertTrue(result.preserveOrder == preserveOrder);
+      Assert.assertTrue(result.getPreserveOrder() == preserveOrder);
     }
     return result;
   }
@@ -660,7 +660,7 @@ public class ConnectionTable {
     synchronized (receivers) {
       for (Iterator<Connection> it = receivers.iterator(); it.hasNext();) {
         Connection con = it.next();
-        if (!beingSick || con.preserveOrder) {
+        if (!beingSick || con.getPreserveOrder()) {
           closeCon("Connection table being destroyed", con, beingSick);
           it.remove();
         }
