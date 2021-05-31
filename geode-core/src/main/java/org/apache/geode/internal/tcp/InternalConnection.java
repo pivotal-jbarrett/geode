@@ -65,7 +65,7 @@ public interface InternalConnection extends Connection {
    */
   int getSendBufferSize();
 
-  void setIdleTimeoutTask(SystemTimer.SystemTimerTask task);
+  void setIdleTimeoutTask(@NotNull SystemTimer.SystemTimerTask task);
 
   /**
    * Returns true if an idle connection was detected.
@@ -78,15 +78,15 @@ public interface InternalConnection extends Connection {
    * Request that the manager close this connection, or close it forcibly if there is no manager.
    * Invoking this method ensures that the proper synchronization is done.
    */
-  void requestClose(String reason);
+  void requestClose(@NotNull String reason);
 
   boolean isClosing();
 
-  void closePartialConnect(String reason, boolean beingSick);
+  void closePartialConnect(@NotNull String reason, boolean beingSick);
 
-  void closeForReconnect(String reason);
+  void closeForReconnect(@NotNull String reason);
 
-  void closeOldConnection(String reason);
+  void closeOldConnection(@NotNull String reason);
 
   /**
    * sends a serialized message to the other end of this connection. This is used by the
@@ -109,6 +109,7 @@ public interface InternalConnection extends Connection {
   /**
    * Return the version of the member on the other side of this connection.
    */
+  @Nullable
   KnownVersion getRemoteVersion();
 
   /**
@@ -138,4 +139,6 @@ public interface InternalConnection extends Connection {
    * answers the number of messages sent on this connection
    */
   long getMessagesSent();
+
+  void extendAckSevereAlertTimeout();
 }

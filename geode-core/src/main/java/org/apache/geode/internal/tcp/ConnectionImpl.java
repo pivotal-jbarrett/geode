@@ -24,6 +24,7 @@ import static org.apache.geode.distributed.internal.DistributionConfigImpl.SECUR
 import static org.apache.geode.internal.monitoring.ThreadsMonitoring.Mode.P2PReaderExecutor;
 import static org.apache.geode.internal.net.BufferPool.BufferType.TRACKED_RECEIVER;
 import static org.apache.geode.util.internal.GeodeGlossary.GEMFIRE_PREFIX;
+import static org.apache.geode.util.internal.UncheckedUtils.uncheckedCast;
 
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -52,6 +53,7 @@ import javax.net.ssl.SSLHandshakeException;
 
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import org.apache.geode.CancelException;
 import org.apache.geode.SerializationException;
@@ -298,7 +300,8 @@ public class ConnectionImpl implements Runnable, InternalConnection {
    * other connections participating in the current transmission. we notify them if ackSATimeout
    * expires to keep all members from generating alerts when only one is slow
    */
-  private List<?> ackConnectionGroup;
+  @Nullable
+  private List<@NotNull InternalConnection> ackConnectionGroup;
 
   /** name of thread that we're currently performing an operation in (may be null) */
   private String ackThreadName;
@@ -648,7 +651,7 @@ public class ConnectionImpl implements Runnable, InternalConnection {
   }
 
   @Override
-  public void setIdleTimeoutTask(SystemTimerTask task) {
+  public void setIdleTimeoutTask(@NotNull SystemTimerTask task) {
     idleTask = task;
   }
 
@@ -1281,7 +1284,7 @@ public class ConnectionImpl implements Runnable, InternalConnection {
   }
 
   @Override
-  public void requestClose(String reason) {
+  public void requestClose(@NotNull String reason) {
     close(reason, true, false, false, false);
   }
 
@@ -1291,17 +1294,17 @@ public class ConnectionImpl implements Runnable, InternalConnection {
   }
 
   @Override
-  public void closePartialConnect(String reason, boolean beingSick) {
+  public void closePartialConnect(@NotNull String reason, boolean beingSick) {
     close(reason, false, false, beingSick, false);
   }
 
   @Override
-  public void closeForReconnect(String reason) {
+  public void closeForReconnect(@NotNull String reason) {
     close(reason, true, false, false, false);
   }
 
   @Override
-  public void closeOldConnection(String reason) {
+  public void closeOldConnection(@NotNull String reason) {
     close(reason, true, true, false, true);
   }
 
@@ -1920,7 +1923,7 @@ public class ConnectionImpl implements Runnable, InternalConnection {
 
   @Override
   public void setInUse(boolean use, long startTime, long ackWaitThreshold, long ackSAThreshold,
-      @NotNull List<?> connectionGroup) {
+      @NotNull List<@NotNull Connection> connectionGroup) {
     // just do the following; EVEN if the connection has been closed
     synchronized (this) {
       if (use && (ackWaitThreshold > 0 || ackSAThreshold > 0)) {
@@ -1928,7 +1931,7 @@ public class ConnectionImpl implements Runnable, InternalConnection {
         transmissionStartTime = startTime;
         ackWaitTimeout = ackWaitThreshold;
         ackSATimeout = ackSAThreshold;
-        ackConnectionGroup = connectionGroup;
+        ackConnectionGroup = uncheckedCast(connectionGroup);
         ackThreadName = Thread.currentThread().getName();
       } else {
         ackWaitTimeout = 0;
@@ -1993,15 +1996,14 @@ public class ConnectionImpl implements Runnable, InternalConnection {
               }
             }
           }
-          List<?> group = ackConnectionGroup;
+          final List<@NotNull InternalConnection> group = ackConnectionGroup;
           if (sentAlert && group != null) {
             // since transmission and ack-receipt are performed serially, we don't want to complain
             // about all receivers out just because one was slow. We therefore reset the time stamps
             // and give others more time
-            for (Object o : group) {
-              ConnectionImpl con = (ConnectionImpl) o;
+            for (final InternalConnection con : group) {
               if (con != ConnectionImpl.this) {
-                con.transmissionStartTime += con.ackSATimeout;
+                con.extendAckSevereAlertTimeout();
               }
             }
           }
@@ -3291,12 +3293,12 @@ public class ConnectionImpl implements Runnable, InternalConnection {
   }
 
   @Override
-  public InternalDistributedMember getRemoteAddress() {
+  public @Nullable InternalDistributedMember getRemoteAddress() {
     return remoteAddr;
   }
 
   @Override
-  public KnownVersion getRemoteVersion() {
+  public @Nullable KnownVersion getRemoteVersion() {
     return remoteVersion;
   }
 
@@ -3340,6 +3342,11 @@ public class ConnectionImpl implements Runnable, InternalConnection {
   @Override
   public long getMessagesSent() {
     return messagesSent;
+  }
+
+  @Override
+  public void extendAckSevereAlertTimeout() {
+    transmissionStartTime += ackSATimeout;
   }
 
   private class BatchBufferFlusher extends Thread {

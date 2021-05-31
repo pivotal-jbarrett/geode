@@ -30,7 +30,7 @@ public interface Connection {
   /**
    * maximum message buffer size
    */
-  public static final int MAX_MSG_SIZE = 0x00ffffff;
+  int MAX_MSG_SIZE = 0x00ffffff;
 
   String THREAD_KIND_IDENTIFIER = "P2P message reader";
 
@@ -46,6 +46,7 @@ public interface Connection {
   /**
    * return the DM id of the member on the other side of this connection.
    */
+  @Nullable
   InternalDistributedMember getRemoteAddress();
 
   /**
@@ -53,5 +54,5 @@ public interface Connection {
    * false then "release" the connection.
    */
   void setInUse(boolean use, long startTime, long ackWaitThreshold, long ackSAThreshold,
-      @Nullable List<?> connectionGroup);
+      @Nullable List<@NotNull Connection> connectionGroup);
 }
