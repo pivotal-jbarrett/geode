@@ -41,6 +41,7 @@ import org.apache.geode.internal.serialization.DeserializationContext;
 import org.apache.geode.internal.serialization.KnownVersion;
 import org.apache.geode.internal.serialization.SerializationContext;
 import org.apache.geode.internal.tcp.Connection;
+import org.apache.geode.internal.tcp.ConnectionImpl;
 import org.apache.geode.internal.util.Breadcrumbs;
 import org.apache.geode.logging.internal.log4j.api.LogService;
 
@@ -415,7 +416,8 @@ public abstract class DistributionMessage
         && getProcessorType() == OperationExecutors.SERIAL_EXECUTOR
         && !isMembershipMessengerThread();
 
-    boolean forceInline = this.acker != null || getInlineProcess() || Connection.isDominoThread();
+    boolean forceInline =
+        this.acker != null || getInlineProcess() || ConnectionImpl.isDominoThread();
 
     if (inlineProcess && !forceInline && isSharedReceiver()) {
       // If processing this message notify a serial gateway sender then don't do it inline.

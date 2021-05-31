@@ -79,7 +79,7 @@ public interface Messenger<ID extends MemberIdentifier> extends Service<ID> {
    * @param state messaging state is stored in this map
    * @param includeMulticast whether to record multicast state
    */
-  void getMessageState(ID member, Map<String, Long> state,
+  void getMessageState(ID member, Map<? super String, Long> state,
       boolean includeMulticast);
 
   /**
@@ -89,7 +89,7 @@ public interface Messenger<ID extends MemberIdentifier> extends Service<ID> {
    * @param member the member flushing operations to this member
    * @param state the state of that member's outgoing messaging to this member
    */
-  void waitForMessageState(ID member, Map<String, Long> state)
+  void waitForMessageState(ID member, Map<? super String, Long> state)
       throws InterruptedException, TimeoutException;
 
   /**

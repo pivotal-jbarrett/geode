@@ -611,7 +611,7 @@ public class JGroupsMessenger<ID extends MemberIdentifier> implements Messenger<
   }
 
   @Override
-  public void getMessageState(ID target, Map<String, Long> state,
+  public void getMessageState(ID target, Map<? super String, Long> state,
       boolean includeMulticast) {
     if (includeMulticast) {
       NAKACK2 nakack = (NAKACK2) myChannel.getProtocolStack().findProtocol("NAKACK2");
@@ -623,7 +623,7 @@ public class JGroupsMessenger<ID extends MemberIdentifier> implements Messenger<
   }
 
   @Override
-  public void waitForMessageState(ID sender, Map<String, Long> state)
+  public void waitForMessageState(ID sender, Map<? super String, Long> state)
       throws InterruptedException, TimeoutException {
     Long seqno = state.get("JGroups.mcastState");
     if (seqno == null) {

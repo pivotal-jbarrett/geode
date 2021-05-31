@@ -40,11 +40,11 @@ public interface Distribution {
   Set<InternalDistributedMember> directChannelSend(List<InternalDistributedMember> destinations,
       DistributionMessage content) throws NotSerializableException;
 
-  Map<String, Long> getMessageState(
+  Map<Object, Long> getMessageState(
       DistributedMember member, boolean includeMulticast);
 
   void waitForMessageState(InternalDistributedMember member,
-      Map<String, Long> state) throws InterruptedException, java.util.concurrent.TimeoutException;
+      Map<Object, Long> state) throws InterruptedException, java.util.concurrent.TimeoutException;
 
   boolean requestMemberRemoval(InternalDistributedMember member,
       String reason);

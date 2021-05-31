@@ -32,7 +32,7 @@ public interface BaseMsgStreamer {
    * Returns a list of the Connections that the message was sent to. Call this after
    * {@link #writeMessage}.
    */
-  List<?> getSentConnections();
+  List<Connection> getSentConnections();
 
   /**
    * Returns an exception the describes which cons the message was not sent to. Call this after

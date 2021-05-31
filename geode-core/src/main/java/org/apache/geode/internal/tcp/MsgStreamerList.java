@@ -42,25 +42,19 @@ public class MsgStreamerList implements BaseMsgStreamer {
     this.streamers = streamers;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void reserveConnections(long startTime, long ackTimeout, long ackSDTimeout) {
-    for (MsgStreamer streamer : this.streamers) {
+    for (MsgStreamer streamer : streamers) {
       streamer.reserveConnections(startTime, ackTimeout, ackSDTimeout);
     }
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public int writeMessage() throws IOException {
     int result = 0;
     RuntimeException ex = null;
     IOException ioex = null;
-    for (MsgStreamer streamer : this.streamers) {
+    for (MsgStreamer streamer : streamers) {
       if (ex != null) {
         streamer.release();
       } else {
@@ -84,16 +78,12 @@ public class MsgStreamerList implements BaseMsgStreamer {
     return result;
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  @SuppressWarnings("unchecked")
   @Override
-  public List<?> getSentConnections() {
-    List<Object> sentCons = Collections.emptyList();
-    for (MsgStreamer streamer : this.streamers) {
-      if (sentCons.size() == 0) {
-        sentCons = (List<Object>) streamer.getSentConnections();
+  public List<Connection> getSentConnections() {
+    List<Connection> sentCons = Collections.emptyList();
+    for (final MsgStreamer streamer : streamers) {
+      if (sentCons.isEmpty()) {
+        sentCons = streamer.getSentConnections();
       } else {
         sentCons.addAll(streamer.getSentConnections());
       }
@@ -101,13 +91,10 @@ public class MsgStreamerList implements BaseMsgStreamer {
     return sentCons;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public ConnectExceptions getConnectExceptions() {
     ConnectExceptions ce = null;
-    for (MsgStreamer streamer : this.streamers) {
+    for (MsgStreamer streamer : streamers) {
       if (ce == null) {
         ce = streamer.getConnectExceptions();
       } else {
@@ -125,14 +112,11 @@ public class MsgStreamerList implements BaseMsgStreamer {
     return ce;
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
   public void close() throws IOException {
     // only throw the first exception and try to close all
     IOException ex = null;
-    for (MsgStreamer m : this.streamers) {
+    for (MsgStreamer m : streamers) {
       try {
         m.close();
       } catch (IOException e) {

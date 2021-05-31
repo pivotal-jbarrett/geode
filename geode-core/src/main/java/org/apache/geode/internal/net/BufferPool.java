@@ -27,7 +27,7 @@ import org.apache.geode.annotations.VisibleForTesting;
 import org.apache.geode.distributed.internal.DMStats;
 import org.apache.geode.distributed.internal.DistributionConfig;
 import org.apache.geode.internal.Assert;
-import org.apache.geode.internal.tcp.Connection;
+import org.apache.geode.internal.tcp.ConnectionImpl;
 import org.apache.geode.unsafe.internal.sun.nio.ch.DirectBuffer;
 import org.apache.geode.util.internal.GeodeGlossary;
 
@@ -67,7 +67,7 @@ public class BufferPool {
   private final ConcurrentLinkedQueue<BBSoftReference> bufferLargeQueue =
       new ConcurrentLinkedQueue<>();
 
-  static final int SMALL_BUFFER_SIZE = Connection.SMALL_BUFFER_SIZE;
+  static final int SMALL_BUFFER_SIZE = ConnectionImpl.SMALL_BUFFER_SIZE;
 
 
   static final int MEDIUM_BUFFER_SIZE = DistributionConfig.DEFAULT_SOCKET_BUFFER_SIZE;

@@ -70,8 +70,8 @@ public interface Membership<ID extends MemberIdentifier> {
    *         distributed member
    * @since GemFire 5.1
    */
-  Map<String, Long> getMessageState(ID member, boolean includeMulticast,
-      Map<String, Long> result);
+  Map<Object, Long> getMessageState(ID member, boolean includeMulticast,
+      Map<Object, Long> result);
 
   /**
    * Waits for the given communications to reach the associated state
@@ -81,7 +81,7 @@ public interface Membership<ID extends MemberIdentifier> {
    * @throws InterruptedException Thrown if the thread is interrupted
    * @since GemFire 5.1
    */
-  void waitForMessageState(ID member, Map<String, Long> state)
+  void waitForMessageState(ID member, Map<? super String, Long> state)
       throws InterruptedException, TimeoutException;
 
   /**

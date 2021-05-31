@@ -52,12 +52,12 @@ import org.apache.geode.internal.net.SocketCloser;
 import org.apache.geode.test.junit.categories.MembershipTest;
 
 @Category(MembershipTest.class)
-public class ConnectionTest {
+public class ConnectionImplTest {
 
   @SuppressWarnings("ConstantConditions")
   @Test
   public void canBeMocked() throws Exception {
-    Connection mockConnection = mock(Connection.class);
+    ConnectionImpl mockConnection = mock(ConnectionImpl.class);
     SocketChannel channel = null;
     ByteBuffer buffer = null;
     boolean forceAsync = true;
@@ -100,7 +100,7 @@ public class ConnectionTest {
 
     SocketChannel channel = SocketChannel.open();
 
-    Connection connection = new Connection(connectionTable, channel.socket());
+    ConnectionImpl connection = new ConnectionImpl(connectionTable, channel.socket());
     connection.setSharedUnorderedForTest();
     connection.run();
 
@@ -118,7 +118,7 @@ public class ConnectionTest {
     when(distributionConfig.getMemberTimeout()).thenReturn(100);
     when(tcpConduit.getSocketId()).thenReturn(new InetSocketAddress(getLocalHost(), 12345));
 
-    Connection connection = new Connection(connectionTable, mock(Socket.class));
+    ConnectionImpl connection = new ConnectionImpl(connectionTable, mock(Socket.class));
 
     int normalTimeout = connection.getP2PConnectTimeout(distributionConfig);
     assertThat(normalTimeout).isEqualTo(600);
@@ -127,7 +127,7 @@ public class ConnectionTest {
         () -> assertThat(connection.getP2PConnectTimeout(distributionConfig)).isEqualTo(100));
   }
 
-  private Connection createSpiedConnection() throws IOException {
+  private ConnectionImpl createSpiedConnection() throws IOException {
     ConnectionTable connectionTable = mock(ConnectionTable.class);
     Distribution distribution = mock(Distribution.class);
     DistributionManager distributionManager = mock(DistributionManager.class);
@@ -149,14 +149,14 @@ public class ConnectionTest {
 
     SocketChannel channel = SocketChannel.open();
 
-    Connection connection = new Connection(connectionTable, channel.socket());
+    ConnectionImpl connection = new ConnectionImpl(connectionTable, channel.socket());
     connection = spy(connection);
     return connection;
   }
 
   @Test
   public void firstCallToNotifyHandshakeWaiterWillClearSSLInputBuffer() throws Exception {
-    Connection connection = createSpiedConnection();
+    ConnectionImpl connection = createSpiedConnection();
     connection.notifyHandshakeWaiter(true);
     verify(connection, times(1)).clearSSLInputBuffer();
   }
@@ -164,7 +164,7 @@ public class ConnectionTest {
   @Test
   public void secondCallWithTrueToNotifyHandshakeWaiterShouldNotClearSSLInputBuffer()
       throws Exception {
-    Connection connection = createSpiedConnection();
+    ConnectionImpl connection = createSpiedConnection();
     connection.notifyHandshakeWaiter(true);
     connection.notifyHandshakeWaiter(true);
     verify(connection, times(1)).clearSSLInputBuffer();
@@ -173,7 +173,7 @@ public class ConnectionTest {
   @Test
   public void secondCallWithFalseToNotifyHandshakeWaiterShouldNotClearSSLInputBuffer()
       throws Exception {
-    Connection connection = createSpiedConnection();
+    ConnectionImpl connection = createSpiedConnection();
     connection.notifyHandshakeWaiter(true);
     connection.notifyHandshakeWaiter(false);
     verify(connection, times(1)).clearSSLInputBuffer();
@@ -184,7 +184,7 @@ public class ConnectionTest {
     final DataInput dataInput = mock(DataInput.class);
     when(dataInput.readByte()).thenReturn((byte) 0);
 
-    Connection.checkHandshakeInitialByte(dataInput);
+    ConnectionImpl.checkHandshakeInitialByte(dataInput);
 
     verify(dataInput).readByte();
     verifyNoMoreInteractions(dataInput);
@@ -195,7 +195,7 @@ public class ConnectionTest {
     final DataInput dataInput = mock(DataInput.class);
     when(dataInput.readByte()).thenReturn((byte) 1);
 
-    assertThatThrownBy(() -> Connection.checkHandshakeInitialByte(dataInput))
+    assertThatThrownBy(() -> ConnectionImpl.checkHandshakeInitialByte(dataInput))
         .isInstanceOf(IllegalStateException.class);
 
     verify(dataInput).readByte();
@@ -205,9 +205,9 @@ public class ConnectionTest {
   @Test
   public void checkHandshakeVersionAcceptsCurrentVersion() throws IOException {
     final DataInput dataInput = mock(DataInput.class);
-    when(dataInput.readByte()).thenReturn(Connection.HANDSHAKE_VERSION);
+    when(dataInput.readByte()).thenReturn(ConnectionImpl.HANDSHAKE_VERSION);
 
-    Connection.checkHandshakeVersion(dataInput);
+    ConnectionImpl.checkHandshakeVersion(dataInput);
 
     verify(dataInput).readByte();
     verifyNoMoreInteractions(dataInput);
@@ -218,7 +218,7 @@ public class ConnectionTest {
     final DataInput dataInput = mock(DataInput.class);
     when(dataInput.readByte()).thenReturn((byte) 1);
 
-    assertThatThrownBy(() -> Connection.checkHandshakeVersion(dataInput))
+    assertThatThrownBy(() -> ConnectionImpl.checkHandshakeVersion(dataInput))
         .isInstanceOf(IllegalStateException.class);
 
     verify(dataInput).readByte();
@@ -230,7 +230,7 @@ public class ConnectionTest {
     final DataInput dataInput = mock(DataInput.class);
     when(dataInput.readInt()).thenReturn(1);
 
-    final int dominoNumber = Connection.readDominoNumber(dataInput, true);
+    final int dominoNumber = ConnectionImpl.readDominoNumber(dataInput, true);
     assertThat(dominoNumber).isEqualTo(0);
 
     verify(dataInput).readInt();
@@ -242,7 +242,7 @@ public class ConnectionTest {
     final DataInput dataInput = mock(DataInput.class);
     when(dataInput.readInt()).thenReturn(1);
 
-    final int dominoNumber = Connection.readDominoNumber(dataInput, false);
+    final int dominoNumber = ConnectionImpl.readDominoNumber(dataInput, false);
     assertThat(dominoNumber).isEqualTo(1);
 
     verify(dataInput).readInt();

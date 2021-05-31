@@ -39,7 +39,7 @@ import org.apache.geode.logging.internal.log4j.api.LogService;
 public class MsgReader {
   private static final Logger logger = LogService.getLogger();
 
-  protected final Connection conn;
+  protected final ConnectionImpl conn;
   protected final Header header = new Header();
   private final NioFilter ioFilter;
   private ByteBuffer peerNetData;
@@ -47,7 +47,7 @@ public class MsgReader {
 
 
 
-  MsgReader(Connection conn, NioFilter nioFilter, KnownVersion version) {
+  MsgReader(ConnectionImpl conn, NioFilter nioFilter, KnownVersion version) {
     this.conn = conn;
     this.ioFilter = nioFilter;
     this.byteBufferInputStream =
@@ -55,22 +55,22 @@ public class MsgReader {
   }
 
   Header readHeader() throws IOException {
-    try (final ByteBufferSharing sharedBuffer = readAtLeast(Connection.MSG_HEADER_BYTES)) {
+    try (final ByteBufferSharing sharedBuffer = readAtLeast(InternalConnection.MSG_HEADER_BYTES)) {
       ByteBuffer unwrappedBuffer = sharedBuffer.getBuffer();
 
-      Assert.assertTrue(unwrappedBuffer.remaining() >= Connection.MSG_HEADER_BYTES);
+      Assert.assertTrue(unwrappedBuffer.remaining() >= InternalConnection.MSG_HEADER_BYTES);
 
       try {
         int nioMessageLength = unwrappedBuffer.getInt();
         /* nioMessageVersion = */
-        Connection.calcHdrVersion(nioMessageLength);
-        nioMessageLength = Connection.calcMsgByteSize(nioMessageLength);
+        ConnectionImpl.calcHdrVersion(nioMessageLength);
+        nioMessageLength = ConnectionImpl.calcMsgByteSize(nioMessageLength);
         byte nioMessageType = unwrappedBuffer.get();
         short nioMsgId = unwrappedBuffer.getShort();
 
-        boolean directAck = (nioMessageType & Connection.DIRECT_ACK_BIT) != 0;
+        boolean directAck = (nioMessageType & InternalConnection.DIRECT_ACK_BIT) != 0;
         if (directAck) {
-          nioMessageType &= ~Connection.DIRECT_ACK_BIT; // clear the ack bit
+          nioMessageType &= ~InternalConnection.DIRECT_ACK_BIT; // clear the ack bit
         }
 
         header.setFields(nioMessageLength, nioMessageType, nioMsgId);

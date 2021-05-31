@@ -1468,14 +1468,14 @@ public class GMSMembership<ID extends MemberIdentifier> implements Membership<ID
    * non-thread-owned serial channels and high priority channels are not included
    */
   @Override
-  public Map<String, Long> getMessageState(ID member, boolean includeMulticast,
-      Map<String, Long> result) {
+  public Map<Object, Long> getMessageState(ID member, boolean includeMulticast,
+      Map<Object, Long> result) {
     services.getMessenger().getMessageState(member, result, includeMulticast);
     return result;
   }
 
   @Override
-  public void waitForMessageState(ID otherMember, Map<String, Long> state)
+  public void waitForMessageState(ID otherMember, Map<? super String, Long> state)
       throws InterruptedException, TimeoutException {
     services.getMessenger().waitForMessageState(otherMember, state);
   }

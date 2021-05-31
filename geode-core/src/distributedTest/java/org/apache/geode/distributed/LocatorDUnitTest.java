@@ -102,7 +102,7 @@ import org.apache.geode.distributed.internal.membership.api.MembershipManagerHel
 import org.apache.geode.distributed.internal.membership.api.MembershipView;
 import org.apache.geode.internal.AvailablePortHelper;
 import org.apache.geode.internal.membership.utils.AvailablePort;
-import org.apache.geode.internal.tcp.Connection;
+import org.apache.geode.internal.tcp.ConnectionImpl;
 import org.apache.geode.logging.internal.log4j.api.LogService;
 import org.apache.geode.test.awaitility.GeodeAwaitility;
 import org.apache.geode.test.dunit.AsyncInvocation;
@@ -714,7 +714,7 @@ public class LocatorDUnitTest implements Serializable {
     // quorumLost should be invoked if we get a ForcedDisconnect in this situation
     assertThat(listener.quorumLostInvoked).describedAs("expected quorumLost to be invoked")
         .isTrue();
-    assertThat(listener.suspectReasons.contains(Connection.INITIATING_SUSPECT_PROCESSING))
+    assertThat(listener.suspectReasons.contains(ConnectionImpl.INITIATING_SUSPECT_PROCESSING))
         .describedAs("expected suspect processing initiated by TCPConduit").isTrue();
   }
 

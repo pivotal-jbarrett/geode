@@ -117,7 +117,7 @@ public class TCPConduitTest {
             new Properties(),
             TCPConduit -> connectionTable, socketCreator, doNothing(), false);
     InternalDistributedMember member = mock(InternalDistributedMember.class);
-    Connection connection = mock(Connection.class);
+    InternalConnection connection = mock(InternalConnection.class);
     when(connection.getRemoteAddress())
         .thenReturn(member);
     doThrow(new IOException("Cannot form connection to alert listener"))

@@ -218,7 +218,8 @@ public class TCPConduit implements Runnable {
    * p2p.idleConnectionTimeout
    * </pre>
    */
-  public TCPConduit(Membership mgr, int port, InetAddress address, boolean isBindAddress,
+  public TCPConduit(Membership<InternalDistributedMember> mgr, int port, InetAddress address,
+      boolean isBindAddress,
       DirectChannel receiver, BufferPool bufferPool, Properties props) throws ConnectionException {
     this(mgr, port, address, isBindAddress, receiver, bufferPool, props, ConnectionTable::create,
         SocketCreatorFactory.getSocketCreatorForComponent(SecurableCommunicationChannel.CLUSTER),
@@ -233,7 +234,8 @@ public class TCPConduit implements Runnable {
   }
 
   @VisibleForTesting
-  TCPConduit(Membership mgr, int port, InetAddress address, boolean isBindAddress,
+  TCPConduit(Membership<InternalDistributedMember> mgr, int port, InetAddress address,
+      boolean isBindAddress,
       DirectChannel receiver, BufferPool bufferPool, Properties props,
       Function<TCPConduit, ConnectionTable> connectionTableFactory, SocketCreator socketCreator,
       Runnable localHostValidation, boolean startAcceptor) throws ConnectionException {
@@ -297,9 +299,9 @@ public class TCPConduit implements Runnable {
       } catch (Exception e) {
         logger.warn("exception parsing p2p.tcpBufferSize", e);
       }
-      if (tcpBufferSize < Connection.SMALL_BUFFER_SIZE) {
+      if (tcpBufferSize < ConnectionImpl.SMALL_BUFFER_SIZE) {
         // enforce minimum
-        tcpBufferSize = Connection.SMALL_BUFFER_SIZE;
+        tcpBufferSize = ConnectionImpl.SMALL_BUFFER_SIZE;
       }
       s = p.getProperty("p2p.idleConnectionTimeout", String.valueOf(idleConnectionTimeout));
       try {
@@ -649,7 +651,8 @@ public class TCPConduit implements Runnable {
    *
    * @since GemFire 5.1
    */
-  public void getThreadOwnedOrderedConnectionState(DistributedMember member, Map result) {
+  public void getThreadOwnedOrderedConnectionState(DistributedMember member,
+      Map<? super Long, Long> result) {
     getConTable().getThreadOwnedOrderedConnectionState(member, result);
   }
 
@@ -659,7 +662,8 @@ public class TCPConduit implements Runnable {
    *
    * @since GemFire 5.1
    */
-  public void waitForThreadOwnedOrderedConnectionState(DistributedMember member, Map channelState)
+  public void waitForThreadOwnedOrderedConnectionState(DistributedMember member,
+      Map<? super Long, Long> channelState)
       throws InterruptedException {
     getConTable().waitForThreadOwnedOrderedConnectionState(member, channelState);
   }
@@ -669,7 +673,7 @@ public class TCPConduit implements Runnable {
    *
    * @param bytesRead number of bytes read off of network to get this message
    */
-  void messageReceived(Connection receiver, DistributionMessage message, int bytesRead)
+  void messageReceived(ConnectionImpl receiver, DistributionMessage message, int bytesRead)
       throws MemberShunnedException {
     if (logger.isTraceEnabled()) {
       logger.trace("{} received {} from {}", id, message, receiver);
@@ -679,7 +683,7 @@ public class TCPConduit implements Runnable {
       message.setBytesRead(bytesRead);
       message.setSender(receiver.getRemoteAddress());
       message.setSharedReceiver(receiver.isSharedResource());
-      directChannel.receive(message, bytesRead);
+      directChannel.receive(message);
     }
   }
 
@@ -735,7 +739,7 @@ public class TCPConduit implements Runnable {
     }
 
     InternalDistributedMember memberInTrouble = null;
-    Connection conn = null;
+    InternalConnection conn = null;
     for (boolean breakLoop = false;;) {
       stopper.checkCancelInProgress(null);
       boolean interrupted = Thread.interrupted();

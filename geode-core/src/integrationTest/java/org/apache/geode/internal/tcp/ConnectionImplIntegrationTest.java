@@ -47,7 +47,7 @@ import org.apache.geode.test.dunit.rules.CacheRule;
 import org.apache.geode.test.junit.categories.MembershipTest;
 
 @Category(MembershipTest.class)
-public class ConnectionIntegrationTest {
+public class ConnectionImplIntegrationTest {
 
   private static final String EXPECTED_EXCEPTION_MESSAGE =
       "Unknown handshake reply code: 99 messageLength: 0";
@@ -96,7 +96,7 @@ public class ConnectionIntegrationTest {
     when(tcpConduit.getMemberId()).thenReturn(new InternalDistributedMember("localhost", 2345));
     when(connectionTable.getSocketCloser()).thenReturn(mock(SocketCloser.class));
 
-    Connection connection = new Connection(connectionTable, socket);
+    ConnectionImpl connection = new ConnectionImpl(connectionTable, socket);
     ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(new byte[] {99});
     DataInputStream inputStream = new DataInputStream(byteArrayInputStream);
 

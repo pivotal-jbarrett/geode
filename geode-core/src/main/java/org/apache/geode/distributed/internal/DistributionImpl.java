@@ -412,9 +412,9 @@ public class DistributionImpl implements Distribution {
 
 
   @Override
-  public Map<String, Long> getMessageState(
+  public Map<Object, Long> getMessageState(
       DistributedMember member, boolean includeMulticast) {
-    final HashMap<String, Long> result = new HashMap<>();
+    final HashMap<Object, Long> result = new HashMap<>();
     DirectChannel dc = directChannel;
     if (dc != null) {
       dc.getChannelStates(member, result);
@@ -424,7 +424,7 @@ public class DistributionImpl implements Distribution {
 
   @Override
   public void waitForMessageState(InternalDistributedMember member,
-      Map<String, Long> state) throws InterruptedException, TimeoutException {
+      Map<Object, Long> state) throws InterruptedException, TimeoutException {
     if (Thread.interrupted())
       throw new InterruptedException();
     DirectChannel dc = directChannel;

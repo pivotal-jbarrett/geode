@@ -43,10 +43,10 @@ class DirectReplySender implements ReplySender {
   @Immutable
   private static final DMStats DUMMY_STATS = new DummyDMStats();
 
-  private final Connection conn;
+  private final ConnectionImpl conn;
   private boolean sentReply = false;
 
-  public DirectReplySender(Connection connection) {
+  public DirectReplySender(ConnectionImpl connection) {
     this.conn = connection;
   }
 
