@@ -938,12 +938,11 @@ public class ConnectionImpl implements Runnable, InternalConnection {
    * creates a new connection to a remote server. We are initiating this connection; the other side
    * must accept us We will almost always send messages; small acks are received.
    */
-  static ConnectionImpl createSender(final Membership<InternalDistributedMember> mgr,
-      final ConnectionTable t,
-      final boolean preserveOrder, final InternalDistributedMember remoteAddr,
-      final boolean sharedResource,
-      final long startTime, final long ackTimeout, final long ackSATimeout)
-      throws IOException, DistributedSystemDisconnectedException {
+  static @NotNull ConnectionImpl createSender(
+      final @NotNull Membership<InternalDistributedMember> mgr, final ConnectionTable t,
+      final boolean preserveOrder, final @NotNull InternalDistributedMember remoteAddr,
+      final boolean sharedResource, final long startTime, final long ackTimeout,
+      final long ackSATimeout) throws IOException, DistributedSystemDisconnectedException {
     boolean success = false;
     ConnectionImpl conn = null;
     // keep trying. Note that this may be executing during the shutdown window

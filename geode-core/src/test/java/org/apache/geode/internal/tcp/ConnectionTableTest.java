@@ -12,12 +12,19 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package org.apache.geode.internal.tcp;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +38,9 @@ import org.apache.geode.distributed.DistributedMember;
 import org.apache.geode.distributed.internal.DMStats;
 import org.apache.geode.distributed.internal.DistributionManager;
 import org.apache.geode.distributed.internal.InternalDistributedSystem;
+import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
+import org.apache.geode.internal.tcp.pool.ConnectionPool;
+import org.apache.geode.internal.tcp.pool.PooledConnection;
 import org.apache.geode.test.junit.categories.MembershipTest;
 
 @Category(MembershipTest.class)
@@ -39,7 +49,8 @@ public class ConnectionTableTest {
   private ConnectionTable connectionTable;
   private Socket socket;
   private PeerConnectionFactory factory;
-  private ConnectionImpl connection;
+  private InternalConnection connection;
+  private ConnectionPool connectionPool;
 
   @Before
   public void initConnectionTable() throws Exception {
@@ -57,11 +68,13 @@ public class ConnectionTableTest {
     when(tcpConduit.getCancelCriterion()).thenReturn(cancelCriterion);
     when(tcpConduit.getStats()).thenReturn(dmStats);
 
-    connection = mock(ConnectionImpl.class);
+    connection = mock(InternalConnection.class);
 
     socket = mock(Socket.class);
 
-    connectionTable = ConnectionTable.create(tcpConduit);
+    connectionPool = mock(ConnectionPool.class);
+
+    connectionTable = new ConnectionTable(tcpConduit, connectionPool);
 
     factory = mock(PeerConnectionFactory.class);
     when(factory.createReceiver(connectionTable, socket)).thenReturn(connection);
@@ -100,7 +113,7 @@ public class ConnectionTableTest {
 
   @Test
   public void testThreadOwnedSocketsAreRemoved() {
-    Boolean wantsResources = ConnectionTable.getThreadOwnsResourcesRegistration();
+    boolean wantsResources = ConnectionTable.getThreadOwnsResourcesRegistration();
     ConnectionTable.threadWantsOwnResources();
     try {
       Map<DistributedMember, InternalConnection> threadConnectionMap = new HashMap<>();
@@ -108,9 +121,40 @@ public class ConnectionTableTest {
       ConnectionTable.releaseThreadsSockets();
       assertEquals(0, threadConnectionMap.size());
     } finally {
-      if (wantsResources != Boolean.FALSE) {
+      if (wantsResources) {
         ConnectionTable.threadWantsSharedResources();
       }
     }
   }
+
+  @Test
+  public void getPooledConnectionReturnsConnectionForUnknownMember() throws IOException {
+    final InternalDistributedMember unknownMember = mock(InternalDistributedMember.class);
+    final PooledConnection pooledConnection = mock(PooledConnection.class);
+    when(connectionPool.makePooled(any())).thenReturn(pooledConnection);
+
+    final InternalConnection connection =
+        connectionTable.getPooledConnection(unknownMember, 0, 0, 0);
+
+    assertThat(connection).isNotNull();
+
+    verify(connectionPool).claim(eq(unknownMember));
+    verify(connectionPool).makePooled(any());
+    verifyNoMoreInteractions(connectionPool);
+  }
+
+  @Test
+  public void getPooledConnectionReturnsConnectionForKnownMember() throws IOException {
+    final InternalDistributedMember knownMember = mock(InternalDistributedMember.class);
+    final PooledConnection pooledConnection = mock(PooledConnection.class);
+    when(connectionPool.claim(eq(knownMember))).thenReturn(pooledConnection);
+
+    final InternalConnection connection = connectionTable.getPooledConnection(knownMember, 0, 0, 0);
+
+    assertThat(connection).isEqualTo(pooledConnection);
+
+    verify(connectionPool).claim(eq(knownMember));
+    verifyNoMoreInteractions(connectionPool);
+  }
+
 }

@@ -34,6 +34,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import org.apache.geode.SystemFailure;
 import org.apache.geode.alerting.internal.spi.AlertingAction;
@@ -52,6 +54,8 @@ import org.apache.geode.internal.lang.utils.JavaWorkarounds;
 import org.apache.geode.internal.logging.CoreLoggingExecutors;
 import org.apache.geode.internal.net.BufferPool;
 import org.apache.geode.internal.net.SocketCloser;
+import org.apache.geode.internal.tcp.pool.ConnectionPool;
+import org.apache.geode.internal.tcp.pool.ConnectionPoolImpl;
 import org.apache.geode.logging.internal.executors.LoggingExecutors;
 import org.apache.geode.logging.internal.log4j.api.LogService;
 
@@ -151,6 +155,8 @@ public class ConnectionTable {
    */
   private final Map<Socket, ConnectingSocketInfo> connectingSockets = new HashMap<>();
 
+  private final ConnectionPool connectionPool;
+
   /**
    * Cause calling thread to share communication resources with other threads.
    */
@@ -181,24 +187,31 @@ public class ConnectionTable {
     return threadWantsOwnResources.get();
   }
 
-  public TCPConduit getOwner() {
+  public @NotNull TCPConduit getOwner() {
     return owner;
   }
 
-  public static ConnectionTable create(TCPConduit conduit) {
+  public static @NotNull ConnectionTable create(@NotNull TCPConduit conduit) {
     ConnectionTable ct = new ConnectionTable(conduit);
     lastInstance.set(ct);
     return ct;
   }
 
-  private ConnectionTable(TCPConduit conduit) {
-    owner = conduit;
+  private ConnectionTable(final @NotNull TCPConduit conduit) {
+    this(conduit, new ConnectionPoolImpl());
+  }
+
+  @VisibleForTesting
+  ConnectionTable(final @NotNull TCPConduit owner, final @NotNull ConnectionPool connectionPool) {
+    this.owner = owner;
+    this.connectionPool = connectionPool;
+
     idleConnTimer = owner.idleConnectionTimeout != 0
-        ? new SystemTimer(conduit.getDM().getSystem()) : null;
+        ? new SystemTimer(owner.getDM().getSystem()) : null;
     threadConnectionMap = new ConcurrentHashMap<>();
-    p2pReaderThreadPool = createThreadPoolForIO(conduit.getDM().getSystem().isShareSockets());
+    p2pReaderThreadPool = createThreadPoolForIO(owner.getDM().getSystem().isShareSockets());
     socketCloser = new SocketCloser();
-    bufferPool = conduit.getBufferPool();
+    bufferPool = owner.getBufferPool();
   }
 
   private Executor createThreadPoolForIO(boolean conserveSockets) {
@@ -428,9 +441,10 @@ public class ConnectionTable {
    * @return the connection, or null if an error
    * @throws IOException if the connection could not be created
    */
-  InternalConnection getThreadOwnedConnection(InternalDistributedMember id, long startTime,
-      long ackTimeout,
-      long ackSATimeout) throws IOException, DistributedSystemDisconnectedException {
+  @NotNull
+  InternalConnection getThreadOwnedConnection(@NotNull InternalDistributedMember id, long startTime,
+      long ackTimeout, long ackSATimeout)
+      throws IOException, DistributedSystemDisconnectedException {
     InternalConnection result;
 
     // Look for result in the thread local
@@ -447,13 +461,7 @@ public class ConnectionTable {
       }
     }
 
-    // OK, we have to create a new connection.
-    result = ConnectionImpl.createSender(owner.getMembership(), this, true, id, false, startTime,
-        ackTimeout, ackSATimeout);
-    if (logger.isDebugEnabled()) {
-      logger.debug("ConnectionTable: created an ordered connection: {}", result);
-    }
-    owner.getStats().incSenders(false, true);
+    result = createSender(id, startTime, ackTimeout, ackSATimeout);
 
     // Update the list of connections owned by this thread....
 
@@ -470,6 +478,38 @@ public class ConnectionTable {
     m.put(id, result);
 
     scheduleIdleTimeout(result);
+    return result;
+  }
+
+  @NotNull
+  InternalConnection getPooledConnection(final @NotNull InternalDistributedMember distributedMember,
+      final long startTime,
+      final long ackTimeout, final long ackSATimeout)
+      throws IOException, DistributedSystemDisconnectedException {
+
+    final InternalConnection pooledConnection = connectionPool.claim(distributedMember);
+    if (null != pooledConnection) {
+      return pooledConnection;
+    }
+
+    return connectionPool
+        .makePooled(createSender(distributedMember, startTime, ackTimeout, ackSATimeout));
+  }
+
+  /**
+   * Create a new sender connection and update stats.
+   */
+  @NotNull
+  private InternalConnection createSender(final @NotNull InternalDistributedMember id,
+      final long startTime, final long ackTimeout,
+      final long ackSATimeout) throws IOException {
+    final InternalConnection result =
+        ConnectionImpl.createSender(owner.getMembership(), this, true, id, false, startTime,
+            ackTimeout, ackSATimeout);
+    if (logger.isDebugEnabled()) {
+      logger.debug("ConnectionTable: created an ordered connection: {}", result);
+    }
+    owner.getStats().incSenders(false, true);
     return result;
   }
 
@@ -524,9 +564,8 @@ public class ConnectionTable {
    * @return the new Connection, or null if a problem
    * @throws IOException if the connection could not be created
    */
-  protected InternalConnection get(InternalDistributedMember id, boolean preserveOrder,
-      long startTime,
-      long ackTimeout, long ackSATimeout)
+  protected @Nullable InternalConnection get(@NotNull InternalDistributedMember id,
+      boolean preserveOrder, long startTime, long ackTimeout, long ackSATimeout)
       throws IOException, DistributedSystemDisconnectedException {
     if (closed) {
       owner.getCancelCriterion().checkCancelInProgress(null);
@@ -538,7 +577,8 @@ public class ConnectionTable {
       result = getSharedConnection(id, threadOwnsResources, preserveOrder, startTime, ackTimeout,
           ackSATimeout);
     } else {
-      result = getThreadOwnedConnection(id, startTime, ackTimeout, ackSATimeout);
+      // result = getThreadOwnedConnection(id, startTime, ackTimeout, ackSATimeout);
+      result = getPooledConnection(id, startTime, ackTimeout, ackSATimeout);
     }
     if (result != null) {
       Assert.assertTrue(result.getPreserveOrder() == preserveOrder);
