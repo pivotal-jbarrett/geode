@@ -22,6 +22,7 @@ import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Claimed;
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Relinquished;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Deque;
@@ -165,7 +166,11 @@ public class ConnectionPoolImpl implements ConnectionPool {
             format("Attempt to invoke method from %s while owned by %s", currentThread(),
                 owner));
       }
-      return method.invoke(pooledConnection, args);
+      try {
+        return method.invoke(pooledConnection, args);
+      } catch (InvocationTargetException e) {
+        throw e.getCause();
+      }
     }
 
     @NotNull

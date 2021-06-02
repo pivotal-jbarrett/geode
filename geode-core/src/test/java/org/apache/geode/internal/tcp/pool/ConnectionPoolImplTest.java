@@ -22,12 +22,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Proxy;
+import java.net.SocketTimeoutException;
 import java.util.Deque;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutionException;
@@ -35,7 +37,9 @@ import java.util.concurrent.Executors;
 
 import org.junit.Test;
 
+import org.apache.geode.distributed.internal.DirectReplyProcessor;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
+import org.apache.geode.internal.tcp.ConnectionException;
 import org.apache.geode.internal.tcp.InternalConnection;
 import org.apache.geode.internal.tcp.pool.ConnectionPoolImpl.ThreadChecked;
 
@@ -210,4 +214,14 @@ public class ConnectionPoolImplTest {
             .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(IllegalStateException.class);
   }
 
+  @Test
+  public void threadCheckedThrowsOriginalExceptions() throws SocketTimeoutException {
+    final PooledConnection pooledConnection = mock(PooledConnection.class);
+    doThrow(ConnectionException.class).when(pooledConnection).readAck(any());
+    final PooledConnection threadChecked = ThreadChecked.wrap(pooledConnection);
+
+    assertThatThrownBy(() -> threadChecked.readAck(mock(DirectReplyProcessor.class)))
+        .isInstanceOf(ConnectionException.class);
+
+  }
 }
