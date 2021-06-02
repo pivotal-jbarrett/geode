@@ -77,7 +77,8 @@ public class ConnectionTable {
   /**
    * true if the current thread wants non-shared resources
    */
-  private static final ThreadLocal<Boolean> threadWantsOwnResources = new ThreadLocal<>();
+  private static final ThreadLocal<Boolean> threadWantsOwnResources =
+      ThreadLocal.withInitial(() -> Boolean.FALSE);
 
   /**
    * Used for messages whose order must be preserved Only connections used for sending messages, and
