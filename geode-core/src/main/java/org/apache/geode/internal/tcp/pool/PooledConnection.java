@@ -18,4 +18,11 @@ package org.apache.geode.internal.tcp.pool;
 import org.apache.geode.internal.tcp.InternalConnection;
 
 public interface PooledConnection extends InternalConnection {
+
+  enum State {
+    Claimed, InUse, Relinquished
+  }
+
+  void setState(State state);
+
 }

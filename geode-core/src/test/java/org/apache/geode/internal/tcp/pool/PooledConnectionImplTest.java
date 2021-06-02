@@ -15,7 +15,11 @@
 
 package org.apache.geode.internal.tcp.pool;
 
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Claimed;
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.InUse;
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Relinquished;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -59,13 +63,15 @@ public class PooledConnectionImplTest {
     when(connection.getUniqueId()).thenReturn(42L);
     when(connection.getMessagesReceived()).thenReturn(42L);
     when(connection.getMessagesSent()).thenReturn(42L);
-    final PooledConnection pooledConnection = new PooledConnectionImpl(connectionPool, connection);
+    final PooledConnectionImpl pooledConnection =
+        new PooledConnectionImpl(connectionPool, connection);
     final DirectReplyProcessor directReplyProcessor = mock(DirectReplyProcessor.class);
     final SystemTimer.SystemTimerTask idleTimeoutTask = mock(SystemTimer.SystemTimerTask.class);
     final ByteBuffer preserialized =
         ByteBuffer.wrap("preserialized".getBytes(StandardCharsets.UTF_8));
     final DistributionMessage distributionMessage = mock(
         DistributionMessage.class);
+    pooledConnection.setState(Claimed);
 
     assertThat(pooledConnection.isSharedResource()).isTrue();
     pooledConnection.readAck(directReplyProcessor);
@@ -127,9 +133,12 @@ public class PooledConnectionImplTest {
   public void setInUseRelinquishesToPoolWhenInUseIsFalse() {
     final ConnectionPool connectionPool = mock(ConnectionPool.class);
     final InternalConnection connection = mock(InternalConnection.class);
-    final PooledConnection pooledConnection = new PooledConnectionImpl(connectionPool, connection);
+    final PooledConnectionImpl pooledConnection =
+        new PooledConnectionImpl(connectionPool, connection);
 
+    pooledConnection.setState(InUse);
     pooledConnection.setInUse(false, 0, 0, 0, null);
+    assertThat(pooledConnection.getState()).isEqualTo(Claimed);
 
     verify(connection).setInUse(eq(false), eq(0L), eq(0L), eq(0L), isNull());
     verify(connectionPool).relinquish(eq(pooledConnection));
@@ -141,12 +150,28 @@ public class PooledConnectionImplTest {
   public void setInUseDoesNotRelinquishToPoolWhenInUseIsTrue() {
     final ConnectionPool connectionPool = mock(ConnectionPool.class);
     final InternalConnection connection = mock(InternalConnection.class);
-    final PooledConnection pooledConnection = new PooledConnectionImpl(connectionPool, connection);
+    final PooledConnectionImpl pooledConnection =
+        new PooledConnectionImpl(connectionPool, connection);
 
+    pooledConnection.setState(Claimed);
     pooledConnection.setInUse(true, 0, 0, 0, null);
+    assertThat(pooledConnection.getState()).isEqualTo(InUse);
 
     verify(connection).setInUse(eq(true), eq(0L), eq(0L), eq(0L), isNull());
 
     verifyNoMoreInteractions(connection, connectionPool);
+  }
+
+  @Test
+  public void transitionStateThrowsIllegalStateException() {
+    final ConnectionPool connectionPool = mock(ConnectionPool.class);
+    final InternalConnection connection = mock(InternalConnection.class);
+    final PooledConnectionImpl pooledConnection =
+        new PooledConnectionImpl(connectionPool, connection);
+
+    pooledConnection.setState(Claimed);
+    assertThatThrownBy(() -> {
+      pooledConnection.transitionState(Claimed, Relinquished);
+    }).isInstanceOf(IllegalStateException.class);
   }
 }

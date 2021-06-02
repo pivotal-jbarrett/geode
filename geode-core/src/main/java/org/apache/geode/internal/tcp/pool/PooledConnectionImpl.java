@@ -15,9 +15,14 @@
 
 package org.apache.geode.internal.tcp.pool;
 
+import static java.lang.String.format;
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Claimed;
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.InUse;
+
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
@@ -36,10 +41,42 @@ public class PooledConnectionImpl implements PooledConnection {
   private final ConnectionPool connectionPool;
   private final InternalConnection connection;
 
+  private State state;
+
   public PooledConnectionImpl(@NotNull final ConnectionPool connectionPool,
       @NotNull final InternalConnection connection) {
     this.connectionPool = connectionPool;
     this.connection = connection;
+  }
+
+  @Override
+  public void setState(final State state) {
+    this.state = state;
+  }
+
+  State getState() {
+    return state;
+  }
+
+  void transitionState(final State toState, final @NotNull State @NotNull... fromStates) {
+    if (!containsState(state, fromStates)) {
+      throw new IllegalStateException(
+          format("Can't transition from state %s to state %s, expected state(s) %s.", state,
+              toState,
+              Arrays.toString(fromStates)));
+    }
+
+    state = toState;
+  }
+
+  private static boolean containsState(final State toState,
+      final @NotNull State @NotNull... fromStates) {
+    for (final State state : fromStates) {
+      if (toState == state) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -63,9 +100,14 @@ public class PooledConnectionImpl implements PooledConnection {
   public void setInUse(final boolean inUse, final long startTime, final long ackWaitThreshold,
       final long ackSAThreshold,
       final @Nullable List<@NotNull Connection> connectionGroup) {
-    connection.setInUse(inUse, startTime, ackWaitThreshold, ackSAThreshold, connectionGroup);
 
-    // TODO assert connection in correct states for pooling.
+    if (inUse) {
+      transitionState(InUse, InUse, Claimed);
+    } else {
+      transitionState(Claimed, InUse);
+    }
+
+    connection.setInUse(inUse, startTime, ackWaitThreshold, ackSAThreshold, connectionGroup);
 
     if (!inUse) {
       connectionPool.relinquish(this);

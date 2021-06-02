@@ -15,8 +15,15 @@
 
 package org.apache.geode.internal.tcp.pool;
 
+import static java.lang.String.format;
+import static java.lang.Thread.currentThread;
 import static org.apache.geode.internal.lang.utils.JavaWorkarounds.computeIfAbsent;
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Claimed;
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Relinquished;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -41,11 +48,13 @@ public class ConnectionPoolImpl implements ConnectionPool {
 
   private final int capacity;
 
+  private final boolean useThreadChecked;
+
   /**
    * Construct an unbounded member connection pool.
    */
   public ConnectionPoolImpl() {
-    this.capacity = 0;
+    this(0);
   }
 
   /**
@@ -54,7 +63,12 @@ public class ConnectionPoolImpl implements ConnectionPool {
    * @param capacity to limit each member pool too.
    */
   public ConnectionPoolImpl(final int capacity) {
+    this(capacity, true);
+  }
+
+  ConnectionPoolImpl(final int capacity, final boolean useThreadChecked) {
     this.capacity = capacity;
+    this.useThreadChecked = useThreadChecked;
   }
 
   @Override
@@ -75,7 +89,11 @@ public class ConnectionPoolImpl implements ConnectionPool {
       }
     }
 
-    return pooledConnection;
+    if (null == pooledConnection) {
+      return null;
+    }
+
+    return claim(pooledConnection);
   }
 
   @Override
@@ -88,11 +106,19 @@ public class ConnectionPoolImpl implements ConnectionPool {
     final PooledConnectionImpl pooledConnection = new PooledConnectionImpl(this, connection);
     log.info("Pooled connection {} created for.", pooledConnection);
 
-    return pooledConnection;
+    return claim(pooledConnection);
+  }
+
+  private @NotNull PooledConnection claim(final @NotNull PooledConnection pooledConnection) {
+    pooledConnection.setState(Claimed);
+
+    return useThreadChecked ? ThreadChecked.wrap(pooledConnection) : pooledConnection;
   }
 
   @Override
   public void relinquish(@NotNull final PooledConnection pooledConnection) {
+    pooledConnection.setState(Relinquished);
+
     final InternalDistributedMember distributedMember = pooledConnection.getRemoteAddress();
     final Deque<PooledConnection> pool = pools.get(distributedMember);
     if (null == pool) {
@@ -103,7 +129,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
       return;
     }
 
-    if (!pool.offerFirst(pooledConnection)) {
+    if (!pool
+        .offerFirst(useThreadChecked ? ThreadChecked.unwrap(pooledConnection) : pooledConnection)) {
       log.info("Pooled connection {} relinquished but pool for member {} rejected it.",
           pooledConnection, distributedMember);
       pooledConnection.closeOldConnection("Pool rejected connection.");
@@ -118,6 +145,44 @@ public class ConnectionPoolImpl implements ConnectionPool {
   @NotNull
   Deque<PooledConnection> createPool() {
     return (capacity > 0) ? new LinkedBlockingDeque<>(capacity) : new ConcurrentLinkedDeque<>();
+  }
+
+  static class ThreadChecked implements InvocationHandler {
+    private @NotNull final PooledConnection pooledConnection;
+    private @NotNull final Thread owner;
+
+    public ThreadChecked(final @NotNull PooledConnection pooledConnection) {
+      this.pooledConnection = pooledConnection;
+
+      owner = currentThread();
+    }
+
+    @Override
+    public Object invoke(final Object proxy, final Method method, final Object[] args)
+        throws Throwable {
+      if (owner != currentThread()) {
+        throw new IllegalStateException(
+            format("Attempt to invoke method from %s while owned by %s", currentThread(),
+                owner));
+      }
+      return method.invoke(pooledConnection, args);
+    }
+
+    @NotNull
+    PooledConnection unwrap() {
+      return pooledConnection;
+    }
+
+    static @NotNull PooledConnection wrap(final @NotNull PooledConnection pooledConnection) {
+      return (PooledConnection) Proxy.newProxyInstance(ConnectionPoolImpl.class.getClassLoader(),
+          new Class<?>[] {PooledConnection.class},
+          new ThreadChecked(pooledConnection));
+    }
+
+    static @NotNull PooledConnection unwrap(final @NotNull PooledConnection pooledConnection) {
+      return ((ThreadChecked) Proxy.getInvocationHandler(pooledConnection)).unwrap();
+    }
+
   }
 
   // TODO idle connection cleanup
