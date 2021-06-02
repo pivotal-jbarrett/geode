@@ -118,8 +118,8 @@ public class ConnectionPoolImplTest {
     pooledConnection.setInUse(true, 0, 0, 0, null);
     pooledConnection.setInUse(false, 0, 0, 0, null);
 
-    verify(connection).setInUse(eq(true), eq(0), eq(0), eq(0), isNull());
-    verify(connection).setInUse(eq(false), eq(0), eq(0), eq(0), isNull());
+    verify(connection).setInUse(eq(true), eq(0L), eq(0L), eq(0L), isNull());
+    verify(connection).setInUse(eq(false), eq(0L), eq(0L), eq(0L), isNull());
   }
 
   @Test
