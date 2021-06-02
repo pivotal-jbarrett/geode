@@ -117,7 +117,7 @@ public class ConnectionTableTest {
 
   @Test
   public void testThreadOwnedSocketsAreRemoved() {
-    boolean wantsResources = ConnectionTable.getThreadOwnsResourcesRegistration();
+    final Boolean wantsResources = ConnectionTable.getThreadOwnsResourcesRegistration();
     ConnectionTable.threadWantsOwnResources();
     try {
       Map<DistributedMember, InternalConnection> threadConnectionMap = new HashMap<>();
@@ -125,7 +125,7 @@ public class ConnectionTableTest {
       ConnectionTable.releaseThreadsSockets();
       assertEquals(0, threadConnectionMap.size());
     } finally {
-      if (wantsResources) {
+      if (wantsResources != Boolean.FALSE) {
         ConnectionTable.threadWantsSharedResources();
       }
     }

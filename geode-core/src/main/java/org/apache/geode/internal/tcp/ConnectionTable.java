@@ -75,10 +75,11 @@ public class ConnectionTable {
   private static boolean ulimitWarningIssued;
 
   /**
-   * true if the current thread wants non-shared resources
+   * Defaults to null to indicate no preference, {@code true} if the current thread wants non-shared
+   * resources, otherwise @{code false}.
    */
   private static final ThreadLocal<Boolean> threadWantsOwnResources =
-      ThreadLocal.withInitial(() -> Boolean.FALSE);
+      ThreadLocal.withInitial(() -> null);
 
   /**
    * Used for messages whose order must be preserved Only connections used for sending messages, and
@@ -184,7 +185,11 @@ public class ConnectionTable {
     return false;
   }
 
-  public static Boolean getThreadOwnsResourcesRegistration() {
+  /**
+   * @return {@code null} if no preference has been set, {@code true} if the current thread wants
+   *         non-shared resources, otherwise @{code false}.
+   */
+  public static @Nullable Boolean getThreadOwnsResourcesRegistration() {
     return threadWantsOwnResources.get();
   }
 
