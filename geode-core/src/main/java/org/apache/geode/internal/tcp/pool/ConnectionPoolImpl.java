@@ -180,7 +180,10 @@ public class ConnectionPoolImpl implements ConnectionPool {
     }
 
     static @NotNull PooledConnection unwrap(final @NotNull PooledConnection pooledConnection) {
-      return ((ThreadChecked) Proxy.getInvocationHandler(pooledConnection)).unwrap();
+      if (Proxy.isProxyClass(pooledConnection.getClass())) {
+        return ((ThreadChecked) Proxy.getInvocationHandler(pooledConnection)).unwrap();
+      }
+      return pooledConnection;
     }
 
   }

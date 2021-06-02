@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -104,6 +105,21 @@ public class ConnectionPoolImplTest {
 
     assertThat(Proxy.getInvocationHandler(pooledConnection)).isNotNull()
         .isInstanceOf(ThreadChecked.class);
+  }
+
+  @Test
+  public void pooledConnectionCanRelinquishViaSetInUseWhenThreadChecked() {
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(0, true);
+    final InternalDistributedMember member = mock(InternalDistributedMember.class);
+    final InternalConnection connection = mock(InternalConnection.class);
+    when(connection.getRemoteAddress()).thenReturn(member);
+
+    final PooledConnection pooledConnection = connectionPool.makePooled(connection);
+    pooledConnection.setInUse(true, 0, 0, 0, null);
+    pooledConnection.setInUse(false, 0, 0, 0, null);
+
+    verify(connection).setInUse(eq(true), eq(0), eq(0), eq(0), isNull());
+    verify(connection).setInUse(eq(false), eq(0), eq(0), eq(0), isNull());
   }
 
   @Test
