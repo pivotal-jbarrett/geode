@@ -23,6 +23,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Deque;
+import java.util.concurrent.BlockingDeque;
+
 import org.junit.Test;
 
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
@@ -35,7 +38,7 @@ public class ConnectionPoolImplTest {
     final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl();
     final InternalDistributedMember member = mock(InternalDistributedMember.class);
 
-    final InternalConnection connection = connectionPool.claim(member);
+    final PooledConnection connection = connectionPool.claim(member);
 
     assertThat(connection).isNull();
   }
@@ -46,26 +49,28 @@ public class ConnectionPoolImplTest {
     final InternalDistributedMember knownMember = mock(InternalDistributedMember.class);
     final InternalConnection connectionForKnownMember = mock(InternalConnection.class);
     when(connectionForKnownMember.getRemoteAddress()).thenReturn(knownMember);
-    connectionPool.add(connectionForKnownMember);
     final InternalDistributedMember unknownMember = mock(InternalDistributedMember.class);
+    connectionPool.relinquish(connectionPool.makePooled(connectionForKnownMember));
+    clearInvocations(connectionForKnownMember);
 
-    final InternalConnection connection = connectionPool.claim(unknownMember);
+    final PooledConnection connection = connectionPool.claim(unknownMember);
 
     assertThat(connection).isNull();
   }
 
   @Test
   public void claimReturnsConnectionForKnownMember() {
+    final InternalDistributedMember member = mock(InternalDistributedMember.class);
+    final InternalConnection connection = mock(InternalConnection.class);
+    when(connection.getRemoteAddress()).thenReturn(member);
     final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl();
-    final InternalDistributedMember knownMember = mock(InternalDistributedMember.class);
-    final InternalConnection connectionForKnownMember = mock(InternalConnection.class);
-    when(connectionForKnownMember.getRemoteAddress()).thenReturn(knownMember);
-    connectionPool.add(connectionForKnownMember);
+    connectionPool.relinquish(connectionPool.makePooled(connection));
+    clearInvocations(connection);
 
-    final InternalConnection connection = connectionPool.claim(knownMember);
+    final PooledConnection pooledConnection = connectionPool.claim(member);
 
-    assertThat(connection).isNotNull();
-    assertThat(connection.getRemoteAddress()).isEqualTo(knownMember);
+    assertThat(pooledConnection).isNotNull();
+    assertThat(pooledConnection.getRemoteAddress()).isEqualTo(member);
   }
 
   @Test
@@ -117,4 +122,18 @@ public class ConnectionPoolImplTest {
     verifyNoMoreInteractions(connection2);
   }
 
+  @Test
+  public void createPoolCreatesUnboundedPool() {
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl();
+    final Deque<PooledConnection> pool = connectionPool.createPool();
+    assertThat(pool).isNotInstanceOf(BlockingDeque.class);
+  }
+
+  @Test
+  public void createPoolCreatesBoundedPool() {
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(1);
+    final Deque<PooledConnection> pool = connectionPool.createPool();
+    assertThat(pool).isInstanceOf(BlockingDeque.class);
+    assertThat(((BlockingDeque<PooledConnection>) pool).remainingCapacity()).isEqualTo(1);
+  }
 }

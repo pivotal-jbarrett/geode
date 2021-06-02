@@ -80,12 +80,15 @@ public class ConnectionPoolImpl implements ConnectionPool {
 
   @Override
   public @NotNull PooledConnection makePooled(final @NotNull InternalConnection connection) {
-    computeIfAbsent(pools, connection.getRemoteAddress(), (k) -> {
-      log.info("Creating new connection pool for member {}.", k);
-      return (capacity > 0) ? new LinkedBlockingDeque<>(capacity) : new ConcurrentLinkedDeque<>();
+    computeIfAbsent(pools, connection.getRemoteAddress(), (distributedMember) -> {
+      log.info("Creating new connection pool for member {}.", distributedMember);
+      return createPool();
     });
 
-    return new PooledConnectionImpl(this, connection);
+    final PooledConnectionImpl pooledConnection = new PooledConnectionImpl(this, connection);
+    log.info("Pooled connection {} created for.", pooledConnection);
+
+    return pooledConnection;
   }
 
   @Override
@@ -112,11 +115,9 @@ public class ConnectionPoolImpl implements ConnectionPool {
   }
 
   @VisibleForTesting
-  void add(@NotNull InternalConnection connection) {
-    if (!pools.computeIfAbsent(connection.getRemoteAddress(), (k) -> new ConcurrentLinkedDeque<>())
-        .offerFirst(new PooledConnectionImpl(this, connection))) {
-      throw new IllegalStateException();
-    }
+  @NotNull
+  Deque<PooledConnection> createPool() {
+    return (capacity > 0) ? new LinkedBlockingDeque<>(capacity) : new ConcurrentLinkedDeque<>();
   }
 
   // TODO idle connection cleanup
