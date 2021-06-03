@@ -52,4 +52,10 @@ public interface ConnectionPool {
    */
   void relinquish(@NotNull PooledConnection pooledConnection);
 
+  /**
+   * Remove a pooled connection from the pool if it exists.
+   *
+   * @param pooledConnection to remove.
+   */
+  void removeIfExists(@NotNull PooledConnection pooledConnection);
 }

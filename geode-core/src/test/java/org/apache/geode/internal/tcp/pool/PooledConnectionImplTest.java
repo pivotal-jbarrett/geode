@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -173,5 +174,32 @@ public class PooledConnectionImplTest {
     assertThatThrownBy(() -> {
       pooledConnection.transitionState(Claimed, Relinquished);
     }).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  public void checkForIdleTimeoutRemovesFromPoolWhenTimedOut() {
+    final ConnectionPool connectionPool = mock(ConnectionPool.class);
+    final InternalConnection connection = mock(InternalConnection.class);
+    final PooledConnectionImpl pooledConnection =
+        new PooledConnectionImpl(connectionPool, connection);
+    when(connection.checkForIdleTimeout()).thenReturn(true);
+
+    assertThat(pooledConnection.checkForIdleTimeout()).isTrue();
+
+    verify(connectionPool).removeIfExists(eq(pooledConnection));
+    verifyNoMoreInteractions(connectionPool);
+  }
+
+  @Test
+  public void checkForIdleTimeoutDoesNotRemoveFromPoolWhenNotTimedOut() {
+    final ConnectionPool connectionPool = mock(ConnectionPool.class);
+    final InternalConnection connection = mock(InternalConnection.class);
+    final PooledConnectionImpl pooledConnection =
+        new PooledConnectionImpl(connectionPool, connection);
+    when(connection.checkForIdleTimeout()).thenReturn(false);
+
+    assertThat(pooledConnection.checkForIdleTimeout()).isFalse();
+
+    verifyNoInteractions(connectionPool);
   }
 }

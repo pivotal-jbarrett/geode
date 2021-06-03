@@ -141,7 +141,11 @@ public class PooledConnectionImpl implements PooledConnection {
 
   @Override
   public boolean checkForIdleTimeout() {
-    return connection.checkForIdleTimeout();
+    if (connection.checkForIdleTimeout()) {
+      connectionPool.removeIfExists(this);
+      return true;
+    }
+    return false;
   }
 
   @Override

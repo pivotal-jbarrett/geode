@@ -56,6 +56,8 @@ import org.apache.geode.internal.net.BufferPool;
 import org.apache.geode.internal.net.SocketCloser;
 import org.apache.geode.internal.tcp.pool.ConnectionPool;
 import org.apache.geode.internal.tcp.pool.ConnectionPoolImpl;
+import org.apache.geode.internal.tcp.pool.PooledConnection;
+import org.apache.geode.internal.tcp.pool.ThreadCheckedPooledConnection;
 import org.apache.geode.logging.internal.executors.LoggingExecutors;
 import org.apache.geode.logging.internal.log4j.api.LogService;
 
@@ -493,13 +495,21 @@ public class ConnectionTable {
       final long ackTimeout, final long ackSATimeout)
       throws IOException, DistributedSystemDisconnectedException {
 
-    final InternalConnection pooledConnection = connectionPool.claim(distributedMember);
-    if (null != pooledConnection) {
+    while (true) {
+      final InternalConnection pooledConnection = connectionPool.claim(distributedMember);
+      if (null == pooledConnection) {
+        break;
+      } else if (pooledConnection.isTimedOut()) {
+        continue;
+      }
       return pooledConnection;
     }
 
-    return connectionPool
+    final PooledConnection pooledConnection = connectionPool
         .makePooled(createSender(distributedMember, startTime, ackTimeout, ackSATimeout));
+    scheduleIdleTimeout(pooledConnection);
+
+    return pooledConnection;
   }
 
   /**
@@ -520,27 +530,19 @@ public class ConnectionTable {
   }
 
   /** schedule an idle-connection timeout task */
-  private void scheduleIdleTimeout(InternalConnection conn) {
-    if (conn == null) {
-      return;
-    }
-    // Set the idle timeout
+  private void scheduleIdleTimeout(@NotNull InternalConnection connection) {
     if (owner.idleConnectionTimeout != 0) {
       try {
         synchronized (this) {
           if (!closed) {
-            IdleConnTT task = new IdleConnTT(conn);
-            conn.setIdleTimeoutTask(task);
-            synchronized (task) {
-              if (!task.isCancelled()) {
-                getIdleConnTimer().scheduleAtFixedRate(task, owner.idleConnectionTimeout,
-                    owner.idleConnectionTimeout);
-              }
-            }
+            final IdleConnTT task = new IdleConnTT(connection);
+            connection.setIdleTimeoutTask(task);
+            getIdleConnTimer().scheduleAtFixedRate(task, owner.idleConnectionTimeout,
+                owner.idleConnectionTimeout);
           }
         }
       } catch (IllegalStateException e) {
-        if (conn.isClosing()) {
+        if (connection.isClosing()) {
           // connection is closed before we schedule the timeout task,
           // causing the task to be canceled
           return;
@@ -1217,15 +1219,14 @@ public class ConnectionTable {
 
     private InternalConnection connection;
 
-    private IdleConnTT(InternalConnection c) {
-      connection = c;
+    private IdleConnTT(@NotNull InternalConnection connection) {
+      this.connection = connection;
     }
 
     @Override
     public boolean cancel() {
-      InternalConnection con = connection;
-      if (con != null) {
-        con.cleanUpOnIdleTaskCancel();
+      if (connection != null) {
+        connection.cleanUpOnIdleTaskCancel();
       }
       connection = null;
       return super.cancel();
@@ -1233,9 +1234,8 @@ public class ConnectionTable {
 
     @Override
     public void run2() {
-      InternalConnection con = connection;
-      if (con != null) {
-        if (con.checkForIdleTimeout()) {
+      if (connection != null) {
+        if (connection.checkForIdleTimeout()) {
           cancel();
         }
       }

@@ -183,6 +183,31 @@ public class ConnectionPoolImplTest {
   }
 
   @Test
+  public void removeIfExistsRemovesFromPool() {
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(1);
+    final InternalDistributedMember member = mock(InternalDistributedMember.class);
+    final InternalConnection connection = mock(InternalConnection.class);
+    when(connection.getRemoteAddress()).thenReturn(member);
+    final PooledConnection pooledConnection = connectionPool.makePooled(connection);
+
+    connectionPool.relinquish(pooledConnection);
+    connectionPool.removeIfExists(pooledConnection);
+
+    assertThat(connectionPool.claim(member)).isNull();
+  }
+
+  @Test
+  public void removeIfExistsIgnoreMissingPool() {
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(1);
+    final InternalDistributedMember member = mock(InternalDistributedMember.class);
+    final InternalConnection connection = mock(InternalConnection.class);
+    when(connection.getRemoteAddress()).thenReturn(member);
+    final PooledConnection pooledConnection = connectionPool.makePooled(connection);
+
+    connectionPool.removeIfExists(pooledConnection);
+  }
+
+  @Test
   public void wrapThreadCheckedWrapsWhenEnabled() {
     final PooledConnection pooledConnection = mock(PooledConnection.class);
     final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(0, true);

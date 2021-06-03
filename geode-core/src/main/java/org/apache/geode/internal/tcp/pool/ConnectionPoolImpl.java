@@ -18,6 +18,7 @@ package org.apache.geode.internal.tcp.pool;
 import static org.apache.geode.internal.lang.utils.JavaWorkarounds.computeIfAbsent;
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Claimed;
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Relinquished;
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Removed;
 
 import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
@@ -114,26 +115,43 @@ public class ConnectionPoolImpl implements ConnectionPool {
   public void relinquish(@NotNull final PooledConnection pooledConnection) {
     pooledConnection.setState(Relinquished);
 
-    final InternalDistributedMember distributedMember = pooledConnection.getRemoteAddress();
-    final Deque<PooledConnection> pool = pools.get(distributedMember);
+    final Deque<PooledConnection> pool = getPool(pooledConnection);
     if (null == pool) {
-      log.info("Pooled connection {} relinquished but no pool for member {} exists.",
-          pooledConnection,
-          distributedMember);
+      log.info("Pooled connection {} relinquished but no pool for member exists.",
+          pooledConnection);
       pooledConnection.closeOldConnection("No connection pool for member.");
       return;
     }
 
     if (!pool
         .offerFirst(unwrapThreadChecked(pooledConnection))) {
-      log.info("Pooled connection {} relinquished but pool for member {} rejected it.",
-          pooledConnection, distributedMember);
+      log.info("Pooled connection {} relinquished but pool for member rejected it.",
+          pooledConnection);
       pooledConnection.closeOldConnection("Pool rejected connection.");
     }
 
     log.debug("Pooled connection {} relinquished.", pooledConnection);
 
     // TODO increment stats
+  }
+
+  @Override
+  public void removeIfExists(@NotNull final PooledConnection pooledConnection) {
+    pooledConnection.setState(Removed);
+
+    final Deque<PooledConnection> pool = getPool(pooledConnection);
+    if (null == pool) {
+      log.info("Pooled connection {} removed but no pool for member exists.",
+          pooledConnection);
+      return;
+    }
+
+    // Idle connections should be at the end of the queue.
+    pool.removeLastOccurrence(unwrapThreadChecked(pooledConnection));
+  }
+
+  private @Nullable Deque<PooledConnection> getPool(final @NotNull PooledConnection pooledConnection) {
+    return pools.get(pooledConnection.getRemoteAddress());
   }
 
   @VisibleForTesting
@@ -143,9 +161,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
         : pooledConnection;
   }
 
-  @VisibleForTesting
   @NotNull
-  PooledConnection unwrapThreadChecked(final @NotNull PooledConnection pooledConnection) {
+  public PooledConnection unwrapThreadChecked(final @NotNull PooledConnection pooledConnection) {
     if (useThreadChecked && pooledConnection instanceof ThreadCheckedPooledConnection) {
       return ((ThreadCheckedPooledConnection) pooledConnection).getDelegate();
     }

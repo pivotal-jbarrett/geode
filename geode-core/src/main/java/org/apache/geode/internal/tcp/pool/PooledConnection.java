@@ -20,7 +20,7 @@ import org.apache.geode.internal.tcp.InternalConnection;
 public interface PooledConnection extends InternalConnection {
 
   enum State {
-    Claimed, InUse, Relinquished
+    Claimed, InUse, Relinquished, Removed
   }
 
   void setState(State state);
