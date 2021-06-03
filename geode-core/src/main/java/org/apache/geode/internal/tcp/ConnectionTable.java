@@ -57,7 +57,6 @@ import org.apache.geode.internal.net.SocketCloser;
 import org.apache.geode.internal.tcp.pool.ConnectionPool;
 import org.apache.geode.internal.tcp.pool.ConnectionPoolImpl;
 import org.apache.geode.internal.tcp.pool.PooledConnection;
-import org.apache.geode.internal.tcp.pool.ThreadCheckedPooledConnection;
 import org.apache.geode.logging.internal.executors.LoggingExecutors;
 import org.apache.geode.logging.internal.log4j.api.LogService;
 
@@ -106,7 +105,8 @@ public class ConnectionTable {
    * threadOrderedConnMap. The value is an ArrayList since we can have any number of connections
    * with the same key.
    */
-  private final ConcurrentMap<DistributedMember, List<InternalConnection>> threadConnectionMap;
+  private final ConcurrentMap<DistributedMember, List<InternalConnection>> threadConnectionMap =
+      new ConcurrentHashMap<>();
 
   /**
    * Used for all non-ordered messages. Only connections used for sending messages, and receiving
@@ -216,7 +216,6 @@ public class ConnectionTable {
 
     idleConnTimer = owner.idleConnectionTimeout != 0
         ? new SystemTimer(owner.getDM().getSystem()) : null;
-    threadConnectionMap = new ConcurrentHashMap<>();
     p2pReaderThreadPool = createThreadPoolForIO(owner.getDM().getSystem().isShareSockets());
     socketCloser = new SocketCloser();
     bufferPool = owner.getBufferPool();
@@ -337,16 +336,12 @@ public class ConnectionTable {
           InternalConnection newCon = (InternalConnection) e;
           if (!newCon.isConnected()) {
             // someone closed our pending connect so cleanup the connection we created
-            if (con != null) {
-              con.requestClose("pending connection closed");
-              con = null;
-            }
+            con.requestClose("pending connection closed");
+            con = null;
           } else {
             // This should not happen. It means that someone else created the connection which
             // should only happen if our Connection was rejected.
-            if (con != null) {
-              con.requestClose("someone else created the connection");
-            }
+            con.requestClose("someone else created the connection");
             con = newCon;
           }
         }
@@ -666,17 +661,15 @@ public class ConnectionTable {
       }
       unorderedConnectionMap.clear();
     }
-    if (threadConnectionMap != null) {
-      synchronized (threadConnectionMap) {
-        for (final List<InternalConnection> connections : threadConnectionMap.values()) {
-          synchronized (connections) {
-            for (InternalConnection o : connections) {
-              closeCon("Connection table being destroyed", o);
-            }
+    synchronized (threadConnectionMap) {
+      for (final List<InternalConnection> connections : threadConnectionMap.values()) {
+        synchronized (connections) {
+          for (InternalConnection o : connections) {
+            closeCon("Connection table being destroyed", o);
           }
         }
-        threadConnectionMap.clear();
       }
+      threadConnectionMap.clear();
     }
     Executor localExec = p2pReaderThreadPool;
     if (localExec != null) {
@@ -762,11 +755,10 @@ public class ConnectionTable {
       }
     }
     if (!needsRemoval) {
-      final ConcurrentMap<DistributedMember, List<InternalConnection>> cm = threadConnectionMap;
-      if (cm != null) {
-        final List<InternalConnection> al = cm.get(memberID);
-        needsRemoval = al != null && !al.isEmpty();
-      }
+      needsRemoval = threadConnectionsNeedRemoval(memberID);
+    }
+    if (!needsRemoval) {
+      needsRemoval = pooledConnectionsNeedRemoval(memberID);
     }
 
     if (needsRemoval) {
@@ -786,21 +778,8 @@ public class ConnectionTable {
         closeCon(reason, c);
       }
 
-      final ConcurrentMap<DistributedMember, List<InternalConnection>> cm = threadConnectionMap;
-      if (cm != null) {
-        final List<InternalConnection> al = cm.remove(memberID);
-        if (al != null) {
-          synchronized (al) {
-            for (InternalConnection c : al) {
-              if (remoteAddress == null && c != null) {
-                remoteAddress = c.getRemoteAddress();
-              }
-              closeCon(reason, c);
-            }
-            al.clear();
-          }
-        }
-      }
+      remoteAddress = closeThreadConnections(memberID, reason, remoteAddress);
+      remoteAddress = closePooledConnections(memberID, reason, remoteAddress);
 
       // close any sockets that are in the process of being connected
       final Set<Socket> toRemove = new HashSet<>();
@@ -853,6 +832,45 @@ public class ConnectionTable {
         socketCloser.releaseResourcesForAddress(remoteAddress.toString());
       }
     }
+  }
+
+  @Nullable
+  private InternalDistributedMember closeThreadConnections(@NotNull final DistributedMember memberID,
+                                                                 @NotNull final String reason,
+                                                                 @Nullable InternalDistributedMember remoteAddress) {
+    final List<InternalConnection> al = threadConnectionMap.remove(memberID);
+    if (al != null) {
+      synchronized (al) {
+        for (InternalConnection c : al) {
+          if (remoteAddress == null && c != null) {
+            remoteAddress = c.getRemoteAddress();
+          }
+          closeCon(reason, c);
+        }
+        al.clear();
+      }
+    }
+    return remoteAddress;
+  }
+
+  private boolean threadConnectionsNeedRemoval(@NotNull final DistributedMember memberID) {
+    final ConcurrentMap<DistributedMember, List<InternalConnection>> cm = threadConnectionMap;
+    final List<InternalConnection> al = cm.get(memberID);
+    return al != null && !al.isEmpty();
+  }
+
+  @Nullable
+  private InternalDistributedMember closePooledConnections(@NotNull final DistributedMember memberID,
+                                                           @NotNull final String reason,
+                                                           @Nullable InternalDistributedMember remoteAddress) {
+    logger.info("Removing all pooled connections for member {}.", memberID);
+    // TODO jbarrett - dirty hack
+    final InternalDistributedMember internalDistributedMember = connectionPool.closeAll(memberID, (c) -> closeCon(reason, c));
+    return null == remoteAddress ? internalDistributedMember : remoteAddress;
+  }
+
+  private boolean pooledConnectionsNeedRemoval(@NotNull final DistributedMember memberID) {
+    return connectionPool.contains(memberID);
   }
 
   SocketCloser getSocketCloser() {
@@ -973,18 +991,16 @@ public class ConnectionTable {
    */
   void getThreadOwnedOrderedConnectionState(final DistributedMember member,
       final Map<? super Long, Long> result) {
-    if (threadConnectionMap != null) {
-      List<InternalConnection> al = threadConnectionMap.get(member);
-      if (al != null) {
-        synchronized (al) {
-          al = new ArrayList<>(al);
-        }
+    List<InternalConnection> al = threadConnectionMap.get(member);
+    if (al != null) {
+      synchronized (al) {
+        al = new ArrayList<>(al);
+      }
 
-        for (final InternalConnection connection : al) {
-          if (!connection.isSharedResource() && connection.getOriginatedHere()
-              && connection.getPreserveOrder()) {
-            result.put(connection.getUniqueId(), connection.getMessagesSent());
-          }
+      for (final InternalConnection connection : al) {
+        if (!connection.isSharedResource() && connection.getOriginatedHere()
+            && connection.getPreserveOrder()) {
+          result.put(connection.getUniqueId(), connection.getMessagesSent());
         }
       }
     }

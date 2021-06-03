@@ -15,9 +15,12 @@
 
 package org.apache.geode.internal.tcp.pool;
 
+import java.util.function.Consumer;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import org.apache.geode.distributed.DistributedMember;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
 import org.apache.geode.internal.tcp.InternalConnection;
 
@@ -41,7 +44,7 @@ public interface ConnectionPool {
    *         {@code null}.
    */
   @Nullable
-  PooledConnection claim(@NotNull InternalDistributedMember distributedMember);
+  PooledConnection claim(@NotNull DistributedMember distributedMember);
 
   /**
    * Relinquishes a previously claimed pooled connection. If a pool no longer exists for the remote
@@ -58,4 +61,19 @@ public interface ConnectionPool {
    * @param pooledConnection to remove.
    */
   void removeIfExists(@NotNull PooledConnection pooledConnection);
+
+  /**
+   * Checks if this pool contains connections for given distributedMember.
+   *
+   * @param distributedMember to check pool for connections.
+   * @return {@code true} if pool has connections to distributedMember, otherwise false.
+   */
+  boolean contains(@NotNull DistributedMember distributedMember);
+
+  /**
+   * TODO jbarrett - dirty hack, got to be a better way.
+   * @param memberID
+   * @return
+   */
+  @Nullable InternalDistributedMember closeAll(@NotNull DistributedMember memberID, @NotNull Consumer<InternalConnection> closer);
 }
