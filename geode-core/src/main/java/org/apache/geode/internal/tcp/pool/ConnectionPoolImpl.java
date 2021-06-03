@@ -100,7 +100,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
     });
 
     final PooledConnectionImpl pooledConnection = new PooledConnectionImpl(this, connection);
-    log.info("Pooled connection {} created for.", pooledConnection);
+    log.info("Pooled connection {} created.", pooledConnection);
 
     return claim(pooledConnection);
   }
@@ -147,10 +147,13 @@ public class ConnectionPoolImpl implements ConnectionPool {
     }
 
     // Idle connections should be at the end of the queue.
-    pool.removeLastOccurrence(unwrapThreadChecked(pooledConnection));
+    if (pool.removeLastOccurrence(unwrapThreadChecked(pooledConnection))) {
+      log.info("ConnectionPool.removeIfExists: removed {}.", pooledConnection);
+    }
   }
 
-  private @Nullable Deque<PooledConnection> getPool(final @NotNull PooledConnection pooledConnection) {
+  private @Nullable Deque<PooledConnection> getPool(
+      final @NotNull PooledConnection pooledConnection) {
     return pools.get(pooledConnection.getRemoteAddress());
   }
 

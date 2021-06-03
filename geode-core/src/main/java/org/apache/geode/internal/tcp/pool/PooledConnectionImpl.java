@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,8 +37,11 @@ import org.apache.geode.internal.serialization.KnownVersion;
 import org.apache.geode.internal.tcp.Connection;
 import org.apache.geode.internal.tcp.ConnectionException;
 import org.apache.geode.internal.tcp.InternalConnection;
+import org.apache.geode.logging.internal.log4j.api.LogService;
 
 public class PooledConnectionImpl implements PooledConnection {
+  private static final Logger log = LogService.getLogger();
+
   private final ConnectionPool connectionPool;
   private final InternalConnection connection;
 
@@ -141,7 +145,9 @@ public class PooledConnectionImpl implements PooledConnection {
 
   @Override
   public boolean checkForIdleTimeout() {
+    log.info("PooledConnection.checkForIdleTimeout: invoked for {}.", this);
     if (connection.checkForIdleTimeout()) {
+      log.info("PooledConnection.checkForIdleTimeout: removing {}.", this);
       connectionPool.removeIfExists(this);
       return true;
     }

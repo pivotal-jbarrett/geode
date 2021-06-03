@@ -670,17 +670,18 @@ public class ConnectionImpl implements Runnable, InternalConnection {
     if (isIdle) {
       timedOut = true;
       owner.getConduit().getStats().incLostLease();
-      if (logger.isDebugEnabled()) {
-        logger.debug("Closing idle connection {} shared={} ordered={}", this, sharedResource,
+//      if (logger.isDebugEnabled()) {
+        logger.info("Closing idle connection {} shared={} ordered={}", this, sharedResource,
             preserveOrder);
-      }
+//      }
       try {
         // Instead of calling requestClose we call closeForReconnect.
         // We don't want this timeout close to close any other connections.
         // The problem with requestClose has removeEndpoint set to true
         // which will close an receivers we have if this connection is a shared one.
         closeForReconnect("idle connection timed out");
-      } catch (Exception ignore) {
+      } catch (Exception e) {
+        logger.warn("Failed to close idle connection {}", this, e);
       }
     }
     return isIdle;
