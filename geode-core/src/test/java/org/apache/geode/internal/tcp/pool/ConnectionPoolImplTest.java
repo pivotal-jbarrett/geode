@@ -17,31 +17,22 @@ package org.apache.geode.internal.tcp.pool;
 
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Relinquished;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.lang.reflect.Proxy;
-import java.net.SocketTimeoutException;
 import java.util.Deque;
 import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 
 import org.junit.Test;
 
-import org.apache.geode.distributed.internal.DirectReplyProcessor;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
-import org.apache.geode.internal.tcp.ConnectionException;
 import org.apache.geode.internal.tcp.InternalConnection;
-import org.apache.geode.internal.tcp.pool.ConnectionPoolImpl.ThreadChecked;
 
 public class ConnectionPoolImplTest {
 
@@ -107,8 +98,7 @@ public class ConnectionPoolImplTest {
 
     final PooledConnection pooledConnection = connectionPool.makePooled(connection);
 
-    assertThat(Proxy.getInvocationHandler(pooledConnection)).isNotNull()
-        .isInstanceOf(ThreadChecked.class);
+    assertThat(pooledConnection).isNotNull().isInstanceOf(ThreadCheckedPooledConnection.class);
   }
 
   @Test
@@ -137,9 +127,7 @@ public class ConnectionPoolImplTest {
 
     final PooledConnection pooledConnection = connectionPool.claim(member);
 
-    assertThat(pooledConnection).isNotNull();
-    assertThat(Proxy.getInvocationHandler(pooledConnection)).isNotNull()
-        .isInstanceOf(ThreadChecked.class);
+    assertThat(pooledConnection).isNotNull().isInstanceOf(ThreadCheckedPooledConnection.class);
   }
 
   @Test
@@ -195,33 +183,53 @@ public class ConnectionPoolImplTest {
   }
 
   @Test
-  public void threadCheckedWrapsAndUnwraps() {
+  public void wrapThreadCheckedWrapsWhenEnabled() {
     final PooledConnection pooledConnection = mock(PooledConnection.class);
-    final PooledConnection threadChecked = ThreadChecked.wrap(pooledConnection);
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(0, true);
+    final PooledConnection threadChecked = connectionPool.wrapThreadChecked(pooledConnection);
 
-    assertThat(Proxy.getInvocationHandler(threadChecked)).isNotNull()
-        .isInstanceOf(ThreadChecked.class);
-    assertThat(ThreadChecked.unwrap(threadChecked)).isSameAs(pooledConnection);
+    assertThat(threadChecked).isNotNull().isInstanceOf(ThreadCheckedPooledConnection.class);
+    assertThat(((ThreadCheckedPooledConnection) threadChecked).getDelegate())
+        .isSameAs(pooledConnection);
   }
 
   @Test
-  public void threadCheckedThrowsWhenAccessedFromAnotherThread() {
+  public void wrapThreadCheckedDoesNotWrapWhenDisabled() {
     final PooledConnection pooledConnection = mock(PooledConnection.class);
-    final PooledConnection threadChecked = ThreadChecked.wrap(pooledConnection);
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(0, false);
+    final PooledConnection wrapped = connectionPool.wrapThreadChecked(pooledConnection);
 
-    assertThatThrownBy(() -> Executors.newSingleThreadScheduledExecutor()
-        .submit((Runnable) threadChecked::isSharedResource).get())
-            .isInstanceOf(ExecutionException.class).hasCauseInstanceOf(IllegalStateException.class);
+    assertThat(wrapped).isSameAs(pooledConnection);
   }
 
   @Test
-  public void threadCheckedThrowsOriginalExceptions() throws SocketTimeoutException {
+  public void unwrapThreadCheckedWhenEnabled() {
     final PooledConnection pooledConnection = mock(PooledConnection.class);
-    doThrow(ConnectionException.class).when(pooledConnection).readAck(any());
-    final PooledConnection threadChecked = ThreadChecked.wrap(pooledConnection);
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(0, true);
+    final PooledConnection threadChecked = connectionPool.wrapThreadChecked(pooledConnection);
+    final PooledConnection unwrapThreadChecked = connectionPool.unwrapThreadChecked(threadChecked);
 
-    assertThatThrownBy(() -> threadChecked.readAck(mock(DirectReplyProcessor.class)))
-        .isInstanceOf(ConnectionException.class);
-
+    assertThat(unwrapThreadChecked).isSameAs(pooledConnection);
   }
+
+  @Test
+  public void unwrapThreadCheckedDoesNotUnwrapWhenEnableButConnectionIsNotThreadChecked() {
+    final PooledConnection pooledConnection = mock(PooledConnection.class);
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(0, true);
+    final PooledConnection unwrapThreadChecked =
+        connectionPool.unwrapThreadChecked(pooledConnection);
+
+    assertThat(unwrapThreadChecked).isSameAs(pooledConnection);
+  }
+
+  @Test
+  public void unwrapThreadCheckedDoesNotUnwrapWhenDisabled() {
+    final PooledConnection pooledConnection = mock(PooledConnection.class);
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(0, false);
+    final PooledConnection unwrapThreadChecked =
+        connectionPool.unwrapThreadChecked(pooledConnection);
+
+    assertThat(unwrapThreadChecked).isSameAs(pooledConnection);
+  }
+
 }
