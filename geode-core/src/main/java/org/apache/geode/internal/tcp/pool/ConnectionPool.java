@@ -70,10 +70,12 @@ public interface ConnectionPool {
    */
   boolean contains(@NotNull DistributedMember distributedMember);
 
+  void closeAll(@NotNull Consumer<@NotNull PooledConnection> closer);
+
   /**
    * TODO jbarrett - dirty hack, got to be a better way.
-   * @param memberID
-   * @return
    */
-  @Nullable InternalDistributedMember closeAll(@NotNull DistributedMember memberID, @NotNull Consumer<InternalConnection> closer);
+  @Nullable
+  InternalDistributedMember closeAll(@NotNull DistributedMember memberID,
+      @NotNull Consumer<@NotNull PooledConnection> closer);
 }

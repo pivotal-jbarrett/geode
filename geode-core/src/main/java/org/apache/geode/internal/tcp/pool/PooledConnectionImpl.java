@@ -34,12 +34,13 @@ import org.apache.geode.distributed.internal.DistributionMessage;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
 import org.apache.geode.internal.SystemTimer;
 import org.apache.geode.internal.serialization.KnownVersion;
+import org.apache.geode.internal.tcp.AbstractConnection;
 import org.apache.geode.internal.tcp.Connection;
 import org.apache.geode.internal.tcp.ConnectionException;
 import org.apache.geode.internal.tcp.InternalConnection;
 import org.apache.geode.logging.internal.log4j.api.LogService;
 
-public class PooledConnectionImpl implements PooledConnection {
+public class PooledConnectionImpl extends AbstractConnection implements PooledConnection {
   private static final Logger log = LogService.getLogger();
 
   private final ConnectionPool connectionPool;
@@ -51,6 +52,11 @@ public class PooledConnectionImpl implements PooledConnection {
       @NotNull final InternalConnection connection) {
     this.connectionPool = connectionPool;
     this.connection = connection;
+
+    connection.setRemoveConnectionListener((c) -> {
+      connectionPool.removeIfExists(this);
+      fireRemoveConnection();
+    });
   }
 
   @Override

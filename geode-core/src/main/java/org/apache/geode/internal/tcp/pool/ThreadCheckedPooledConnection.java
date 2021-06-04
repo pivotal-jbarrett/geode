@@ -31,10 +31,12 @@ import org.apache.geode.distributed.internal.DistributionMessage;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
 import org.apache.geode.internal.SystemTimer.SystemTimerTask;
 import org.apache.geode.internal.serialization.KnownVersion;
+import org.apache.geode.internal.tcp.AbstractConnection;
 import org.apache.geode.internal.tcp.Connection;
 import org.apache.geode.internal.tcp.ConnectionException;
 
-public final class ThreadCheckedPooledConnection implements PooledConnection {
+public final class ThreadCheckedPooledConnection extends AbstractConnection
+    implements PooledConnection {
   private final PooledConnection delegate;
   private final Thread owner;
 

@@ -106,7 +106,7 @@ import org.apache.geode.logging.internal.log4j.api.LogService;
  *
  * @since GemFire 2.0
  */
-public class ConnectionImpl implements Runnable, InternalConnection {
+public class ConnectionImpl extends AbstractConnection implements Runnable, InternalConnection {
   private static final Logger logger = LogService.getLogger();
 
   @MakeNotStatic
@@ -670,10 +670,10 @@ public class ConnectionImpl implements Runnable, InternalConnection {
     if (isIdle) {
       timedOut = true;
       owner.getConduit().getStats().incLostLease();
-//      if (logger.isDebugEnabled()) {
-        logger.info("Closing idle connection {} shared={} ordered={}", this, sharedResource,
-            preserveOrder);
-//      }
+      // if (logger.isDebugEnabled()) {
+      logger.info("Closing idle connection {} shared={} ordered={}", this, sharedResource,
+          preserveOrder);
+      // }
       try {
         // Instead of calling requestClose we call closeForReconnect.
         // We don't want this timeout close to close any other connections.
@@ -1430,6 +1430,7 @@ public class ConnectionImpl implements Runnable, InternalConnection {
           }
         } else if (!isReceiver) {
           owner.removeThreadConnection(remoteAddr, this);
+          fireRemoveConnection();
         }
       } else {
         // This code is ok to do even if the ConnectionTable has never added this Connection to its
@@ -1438,6 +1439,7 @@ public class ConnectionImpl implements Runnable, InternalConnection {
           owner.removeSharedConnection(reason, remoteAddr, preserveOrder, this);
         } else if (!isReceiver) {
           owner.removeThreadConnection(remoteAddr, this);
+          fireRemoveConnection();
         }
       }
     }
@@ -1456,6 +1458,7 @@ public class ConnectionImpl implements Runnable, InternalConnection {
       }
     }
   }
+
 
   /**
    * starts a reader thread

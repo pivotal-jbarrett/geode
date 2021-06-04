@@ -16,6 +16,7 @@ package org.apache.geode.internal.tcp;
 
 import static java.lang.Integer.MAX_VALUE;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.commons.collections.CollectionUtils.isEmpty;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -105,20 +106,22 @@ public class ConnectionTable {
    * threadOrderedConnMap. The value is an ArrayList since we can have any number of connections
    * with the same key.
    */
-  private final ConcurrentMap<DistributedMember, List<InternalConnection>> threadConnectionMap =
+  private final ConcurrentMap<DistributedMember, List<@NotNull InternalConnection>> threadConnectionMap =
       new ConcurrentHashMap<>();
 
   /**
    * Used for all non-ordered messages. Only connections used for sending messages, and receiving
    * acks, will be put in this map.
+   * Value may be {@link Connection} or {@link PendingConnection}.
    */
-  private final Map<DistributedMember, Object> unorderedConnectionMap = new ConcurrentHashMap<>();
+  private final ConcurrentMap<DistributedMember, Object> unorderedConnectionMap =
+      new ConcurrentHashMap<>();
 
   /**
    * Used for all accepted connections. These connections are read only; we never send messages,
    * except for acks; only receive. Consists of a list of Connection.
    */
-  private final List<InternalConnection> receivers = new ArrayList<>();
+  private final List<@NotNull InternalConnection> receivers = new ArrayList<>();
 
   /**
    * the conduit for this table
@@ -671,6 +674,9 @@ public class ConnectionTable {
       }
       threadConnectionMap.clear();
     }
+
+    connectionPool.closeAll((c) -> closeCon("Connection table being destroyed", c));
+
     Executor localExec = p2pReaderThreadPool;
     if (localExec != null) {
       if (localExec instanceof ExecutorService) {
@@ -735,137 +741,186 @@ public class ConnectionTable {
   /**
    * remove an endpoint and notify the membership manager of the departure
    */
-  protected void removeEndpoint(DistributedMember stub, String reason) {
-    removeEndpoint(stub, reason, true);
+  protected void removeEndpoint(final @NotNull DistributedMember distributedMember,
+      final @NotNull String reason) {
+    removeEndpoint(distributedMember, reason, true);
   }
 
-  void removeEndpoint(DistributedMember memberID, String reason, boolean notifyDisconnect) {
+  void removeEndpoint(final @NotNull DistributedMember memberID, final @NotNull String reason,
+      final boolean notifyDisconnect) {
     if (closed) {
       return;
     }
-    boolean needsRemoval = false;
+
+    if (!(orderConnectionNeedsRemoval(memberID) || unorderedConnectionNeedsRemoval(memberID) ||
+        threadConnectionsNeedRemoval(memberID) || pooledConnectionsNeedRemoval(memberID))) {
+      return;
+    }
+
+    InternalDistributedMember remoteAddress = null;
+    remoteAddress = closeOrderedConnections(memberID, reason, remoteAddress);
+    remoteAddress = closeUnorderedConnections(memberID, reason, remoteAddress);
+    remoteAddress = closeThreadConnections(memberID, reason, remoteAddress);
+    remoteAddress = closePooledConnections(memberID, reason, remoteAddress);
+
+    closeSockets(memberID);
+    closeReceivers(memberID, reason);
+
+    if (notifyDisconnect) {
+      if (owner.getDM().shutdownInProgress()) {
+        throw new DistributedSystemDisconnectedException("Shutdown in progress",
+            owner.getDM().getDistribution().getShutdownCause());
+      }
+    }
+
+    if (remoteAddress != null) {
+      socketCloser.releaseResourcesForAddress(remoteAddress.toString());
+    }
+  }
+
+  /**
+   * close any receivers
+   * avoid deadlock when a NIC has failed by closing connections outside of the receivers sync
+   */
+  private void closeReceivers(final @NotNull DistributedMember memberID,
+      final @NotNull String reason) {
+    final Set<Connection> receivers = getReceiversToClose(memberID);
+    for (final Connection receiver : receivers) {
+      closeCon(reason, receiver);
+    }
+  }
+
+  @NotNull
+  private Set<Connection> getReceiversToClose(final @NotNull DistributedMember memberID) {
+    final Set<Connection> receiversToClose = new HashSet<>();
+    synchronized (receivers) {
+      for (final Iterator<InternalConnection> it = receivers.iterator(); it.hasNext();) {
+        final InternalConnection connection = it.next();
+        if (memberID.equals(connection.getRemoteAddress())) {
+          it.remove();
+          receiversToClose.add(connection);
+        }
+      }
+    }
+    return receiversToClose;
+  }
+
+  /**
+   * close any sockets that are in the process of being connected
+   */
+  private void closeSockets(final @NotNull DistributedMember memberID) {
+    closeSockets(memberID, getSocketsToClose((MemberIdentifier) memberID));
+  }
+
+  private void closeSockets(final @NotNull DistributedMember memberID,
+      final @NotNull Set<Socket> sockets) {
+    for (final Socket socket : sockets) {
+      try {
+        socket.close();
+      } catch (IOException e) {
+        if (logger.isDebugEnabled()) {
+          logger.debug("caught exception while trying to close connecting socket for {}",
+              memberID, e);
+        }
+      }
+    }
+  }
+
+  @NotNull
+  private Set<Socket> getSocketsToClose(final @NotNull MemberIdentifier memberID) {
+    final Set<Socket> socketsToClose = new HashSet<>();
+    synchronized (connectingSockets) {
+      for (final Iterator<Map.Entry<Socket, ConnectingSocketInfo>> it =
+          connectingSockets.entrySet().iterator(); it.hasNext();) {
+        final Map.Entry<Socket, ConnectingSocketInfo> entry = it.next();
+        final ConnectingSocketInfo info = entry.getValue();
+        if (info.peerAddress.equals(memberID.getInetAddress())) {
+          it.remove();
+          socketsToClose.add(entry.getKey());
+        }
+      }
+    }
+    return socketsToClose;
+  }
+
+  private boolean orderConnectionNeedsRemoval(final @NotNull DistributedMember memberID) {
     synchronized (orderedConnectionMap) {
-      if (orderedConnectionMap.get(memberID) != null)
-        needsRemoval = true;
+      return orderedConnectionMap.containsKey(memberID);
     }
-    if (!needsRemoval) {
-      synchronized (unorderedConnectionMap) {
-        if (unorderedConnectionMap.get(memberID) != null)
-          needsRemoval = true;
-      }
-    }
-    if (!needsRemoval) {
-      needsRemoval = threadConnectionsNeedRemoval(memberID);
-    }
-    if (!needsRemoval) {
-      needsRemoval = pooledConnectionsNeedRemoval(memberID);
-    }
+  }
 
-    if (needsRemoval) {
-      InternalDistributedMember remoteAddress = null;
-      synchronized (orderedConnectionMap) {
-        Object c = orderedConnectionMap.remove(memberID);
-        if (c instanceof InternalConnection) {
-          remoteAddress = ((InternalConnection) c).getRemoteAddress();
-        }
-        closeCon(reason, c);
-      }
-      synchronized (unorderedConnectionMap) {
-        Object c = unorderedConnectionMap.remove(memberID);
-        if (remoteAddress == null && c instanceof InternalConnection) {
-          remoteAddress = ((InternalConnection) c).getRemoteAddress();
-        }
-        closeCon(reason, c);
-      }
-
-      remoteAddress = closeThreadConnections(memberID, reason, remoteAddress);
-      remoteAddress = closePooledConnections(memberID, reason, remoteAddress);
-
-      // close any sockets that are in the process of being connected
-      final Set<Socket> toRemove = new HashSet<>();
-      synchronized (connectingSockets) {
-        for (final Iterator<Map.Entry<Socket, ConnectingSocketInfo>> it =
-            connectingSockets.entrySet().iterator(); it.hasNext();) {
-          final Map.Entry<Socket, ConnectingSocketInfo> entry = it.next();
-          final ConnectingSocketInfo info = entry.getValue();
-          if (info.peerAddress.equals(((MemberIdentifier) memberID).getInetAddress())) {
-            toRemove.add(entry.getKey());
-            it.remove();
-          }
-        }
-      }
-
-      for (final Socket sock : toRemove) {
-        try {
-          sock.close();
-        } catch (IOException e) {
-          if (logger.isDebugEnabled()) {
-            logger.debug("caught exception while trying to close connecting socket for {}",
-                memberID, e);
-          }
-        }
-      }
-
-      // close any receivers
-      // avoid deadlock when a NIC has failed by closing connections outside of the receivers sync
-      final Set<Connection> connectionsToClose = new HashSet<>();
-      synchronized (receivers) {
-        for (final Iterator<InternalConnection> it = receivers.iterator(); it.hasNext();) {
-          final InternalConnection con = it.next();
-          if (memberID.equals(con.getRemoteAddress())) {
-            it.remove();
-            connectionsToClose.add(con);
-          }
-        }
-      }
-      for (final Connection con : connectionsToClose) {
-        closeCon(reason, con);
-      }
-      if (notifyDisconnect) {
-        if (owner.getDM().shutdownInProgress()) {
-          throw new DistributedSystemDisconnectedException("Shutdown in progress",
-              owner.getDM().getDistribution().getShutdownCause());
-        }
-      }
-
-      if (remoteAddress != null) {
-        socketCloser.releaseResourcesForAddress(remoteAddress.toString());
-      }
+  private boolean unorderedConnectionNeedsRemoval(final @NotNull DistributedMember memberID) {
+    synchronized (unorderedConnectionMap) {
+      return unorderedConnectionMap.containsKey(memberID);
     }
   }
 
   @Nullable
-  private InternalDistributedMember closeThreadConnections(@NotNull final DistributedMember memberID,
-                                                                 @NotNull final String reason,
-                                                                 @Nullable InternalDistributedMember remoteAddress) {
-    final List<InternalConnection> al = threadConnectionMap.remove(memberID);
-    if (al != null) {
-      synchronized (al) {
-        for (InternalConnection c : al) {
-          if (remoteAddress == null && c != null) {
-            remoteAddress = c.getRemoteAddress();
-          }
+  private InternalDistributedMember closeOrderedConnections(
+      final @NotNull DistributedMember memberID,
+      final String reason,
+      @Nullable InternalDistributedMember remoteAddress) {
+    return closeConnection(orderedConnectionMap, reason, remoteAddress, memberID);
+  }
+
+  @Nullable
+  private InternalDistributedMember closeUnorderedConnections(
+      final @NotNull DistributedMember memberID,
+      final String reason,
+      @Nullable InternalDistributedMember remoteAddress) {
+    return closeConnection(unorderedConnectionMap, reason, remoteAddress, memberID);
+  }
+
+  @Nullable
+  private InternalDistributedMember closeConnection(
+      @NotNull final Map<DistributedMember, Object> memberConnections, final String reason,
+      @Nullable InternalDistributedMember remoteAddress,
+      final @NotNull DistributedMember memberID) {
+    final Object connection;
+    // noinspection SynchronizationOnLocalVariableOrMethodParameter
+    synchronized (memberConnections) {
+      connection = unorderedConnectionMap.remove(memberID);
+    }
+
+    if (remoteAddress == null && connection instanceof InternalConnection) {
+      remoteAddress = ((InternalConnection) connection).getRemoteAddress();
+    }
+    closeCon(reason, connection);
+    return remoteAddress;
+  }
+
+  @Nullable
+  private InternalDistributedMember closeThreadConnections(
+      @NotNull final DistributedMember memberID,
+      @NotNull final String reason,
+      @Nullable InternalDistributedMember remoteAddress) {
+    final List<@NotNull InternalConnection> connections = threadConnectionMap.remove(memberID);
+    if (connections != null) {
+      synchronized (connections) {
+        for (Iterator<InternalConnection> iterator = connections.iterator(); iterator.hasNext();) {
+          final InternalConnection c = iterator.next();
+          iterator.remove();
+          remoteAddress = null == remoteAddress ? c.getRemoteAddress() : remoteAddress;
           closeCon(reason, c);
         }
-        al.clear();
       }
     }
     return remoteAddress;
   }
 
   private boolean threadConnectionsNeedRemoval(@NotNull final DistributedMember memberID) {
-    final ConcurrentMap<DistributedMember, List<InternalConnection>> cm = threadConnectionMap;
-    final List<InternalConnection> al = cm.get(memberID);
-    return al != null && !al.isEmpty();
+    return !isEmpty(threadConnectionMap.get(memberID));
   }
 
   @Nullable
-  private InternalDistributedMember closePooledConnections(@NotNull final DistributedMember memberID,
-                                                           @NotNull final String reason,
-                                                           @Nullable InternalDistributedMember remoteAddress) {
+  private InternalDistributedMember closePooledConnections(
+      @NotNull final DistributedMember memberID,
+      @NotNull final String reason,
+      @Nullable InternalDistributedMember remoteAddress) {
     logger.info("Removing all pooled connections for member {}.", memberID);
     // TODO jbarrett - dirty hack
-    final InternalDistributedMember internalDistributedMember = connectionPool.closeAll(memberID, (c) -> closeCon(reason, c));
+    final InternalDistributedMember internalDistributedMember =
+        connectionPool.closeAll(memberID, (c) -> closeCon(reason, c));
     return null == remoteAddress ? internalDistributedMember : remoteAddress;
   }
 

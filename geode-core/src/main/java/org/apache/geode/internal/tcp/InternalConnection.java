@@ -19,6 +19,7 @@ import static java.lang.String.format;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.function.Consumer;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -54,6 +55,9 @@ public interface InternalConnection extends Connection {
     return hdrSize;
   }
 
+  interface RemoveConnectionListener extends Consumer<InternalConnection> {
+  }
+
   boolean isStopped();
 
   boolean isTimedOut();
@@ -87,6 +91,8 @@ public interface InternalConnection extends Connection {
   void closeForReconnect(@NotNull String reason);
 
   void closeOldConnection(@NotNull String reason);
+
+  void setRemoveConnectionListener(@NotNull RemoveConnectionListener removeConnectionListener);
 
   /**
    * sends a serialized message to the other end of this connection. This is used by the

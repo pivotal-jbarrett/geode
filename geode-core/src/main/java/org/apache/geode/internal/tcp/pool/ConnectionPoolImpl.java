@@ -16,6 +16,7 @@
 package org.apache.geode.internal.tcp.pool;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.commons.collections.CollectionUtils.isEmpty;
 import static org.apache.geode.internal.lang.utils.JavaWorkarounds.computeIfAbsent;
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Claimed;
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Relinquished;
@@ -23,13 +24,10 @@ import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Removed;
 
 import java.util.Deque;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.Consumer;
@@ -39,7 +37,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import org.apache.geode.annotations.VisibleForTesting;
-import org.apache.geode.cache.execute.Function;
 import org.apache.geode.distributed.DistributedMember;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
 import org.apache.geode.internal.tcp.InternalConnection;
@@ -51,7 +48,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
   /**
    * All connections available in this pool.
    */
-  @VisibleForTesting final ConcurrentMap<DistributedMember, Deque<PooledConnection>> pools =
+  @VisibleForTesting
+  final ConcurrentMap<DistributedMember, Deque<PooledConnection>> pools =
       new ConcurrentHashMap<>();
 
   /**
@@ -127,12 +125,28 @@ public class ConnectionPoolImpl implements ConnectionPool {
 
   @Override
   public boolean contains(@NotNull final DistributedMember distributedMember) {
-    final Set<PooledConnection> pooledConnections = getPooledConnections(distributedMember);
-    return !(null == pooledConnections || pooledConnections.isEmpty());
+    return !isEmpty(getPooledConnections(distributedMember));
   }
 
   @Override
-  public @Nullable InternalDistributedMember closeAll(@NotNull final DistributedMember distributedMember, @NotNull Consumer<InternalConnection> closer) {
+  public void closeAll(@NotNull final Consumer<@NotNull PooledConnection> closer) {
+    pools.clear();
+    for (Iterator<Map.Entry<DistributedMember, Set<PooledConnection>>> i =
+        connections.entrySet().iterator(); i.hasNext();) {
+      final Map.Entry<DistributedMember, Set<PooledConnection>> entry = i.next();
+      i.remove();
+      for (Iterator<PooledConnection> j = entry.getValue().iterator(); j.hasNext();) {
+        final PooledConnection pooledConnection = j.next();
+        j.remove();
+        closer.accept(pooledConnection);
+      }
+    }
+  }
+
+  @Override
+  public @Nullable InternalDistributedMember closeAll(
+      @NotNull final DistributedMember distributedMember,
+      @NotNull Consumer<@NotNull PooledConnection> closer) {
     final Deque<PooledConnection> pool = getPool(distributedMember);
     if (null != pool) {
       pool.clear();
@@ -140,8 +154,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
     InternalDistributedMember remoteAddress = null;
     final Set<PooledConnection> pooledConnections = getPooledConnections(distributedMember);
     if (null != pooledConnections) {
-      for (Iterator<PooledConnection> iterator = pooledConnections.iterator();
-           iterator.hasNext(); ) {
+      for (Iterator<PooledConnection> iterator = pooledConnections.iterator(); iterator
+          .hasNext();) {
         final PooledConnection pooledConnection = iterator.next();
         iterator.remove();
         remoteAddress = null == remoteAddress ? pooledConnection.getRemoteAddress() : remoteAddress;
@@ -215,7 +229,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
     remove(pooledConnection);
   }
 
-  private @Nullable Deque<PooledConnection> getPool(final @NotNull DistributedMember distributedMember) {
+  private @Nullable Deque<PooledConnection> getPool(
+      final @NotNull DistributedMember distributedMember) {
     return pools.get(distributedMember);
   }
 
