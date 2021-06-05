@@ -84,8 +84,8 @@ public class ConnectionTable {
       ThreadLocal.withInitial(() -> null);
 
   /**
-   * Used for messages whose order must be preserved Only connections used for sending messages, and
-   * receiving acks, will be put in this map.
+   * Used for messages whose order must be preserved. Only connections used for sending messages,
+   * and receiving acks, will be put in this map.
    * Value may be {@link Connection} or {@link PendingConnection}.
    */
   private final Map<DistributedMember, Object> orderedConnectionMap = new ConcurrentHashMap<>();
