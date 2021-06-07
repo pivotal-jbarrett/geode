@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 
 import org.apache.geode.CancelException;
 import org.apache.geode.CopyHelper;
@@ -406,65 +407,66 @@ public class BucketRegion extends DistributedRegion implements Bucket {
    *
    * @return first key found in CM null means not found
    */
-  LockObject searchAndLock(Object[] keys) {
+  LockObject searchAndLock(final @NotNull Object @NotNull [] keys) {
     final boolean isDebugEnabled = logger.isDebugEnabled();
-
-    LockObject foundLock = null;
 
     synchronized (allKeysMap) {
       // check if there's any key in map
-      for (Object key : keys) {
-        if (allKeysMap.containsKey(key)) {
-          foundLock = allKeysMap.get(key);
+      for (final Object key : keys) {
+        final LockObject foundLock = allKeysMap.get(key);
+        if (foundLock != null) {
           if (isDebugEnabled) {
             logger.debug("LockKeys: found key: {}:{}", key, foundLock.lockedTimeStamp);
           }
           foundLock.waiting();
-          break;
+          return foundLock;
         }
       }
 
       // save the keys when still locked
-      if (foundLock == null) {
-        for (Object key : keys) {
-          LockObject lockValue =
-              new LockObject(key, isDebugEnabled ? System.currentTimeMillis() : 0);
-          allKeysMap.put(key, lockValue);
-          if (isDebugEnabled) {
-            logger.debug("LockKeys: add key: {}:{}", key, lockValue.lockedTimeStamp);
-          }
+      for (final Object key : keys) {
+        final LockObject lockValue =
+            new LockObject(key, isDebugEnabled ? System.currentTimeMillis() : 0);
+        allKeysMap.put(key, lockValue);
+        if (isDebugEnabled) {
+          logger.debug("LockKeys: add key: {}:{}", key, lockValue.lockedTimeStamp);
         }
       }
     }
 
-    return foundLock;
+    return null;
   }
 
   /**
    * After processed the keys, this method will remove them from CM. And notifyAll for each key. The
    * thread needs to acquire lock of CM first.
    */
-  public void removeAndNotifyKeys(Object[] keys) {
+  public void removeAndNotifyKeys(final @NotNull Object @NotNull [] keys) {
     final boolean isTraceEnabled = logger.isTraceEnabled();
 
+    final LockObject[] lockObjects = new LockObject[keys.length];
+
     synchronized (allKeysMap) {
-      for (Object key : keys) {
-        LockObject lockValue = allKeysMap.remove(key);
-        if (lockValue != null) {
-          // let current thread become the monitor of the key object
+      for (int i = 0, keysLength = keys.length; i < keysLength; i++) {
+        lockObjects[i] = allKeysMap.remove(keys[i]);
+      }
+    }
+
+    for (final LockObject lockValue : lockObjects) {
+      if (null != lockValue) {
+        lockValue.setRemoved();
+        if (isTraceEnabled) {
+          long waitTime = System.currentTimeMillis() - lockValue.lockedTimeStamp;
+          logger.trace("LockKeys: remove key {}, notifyAll for {}. It waited {}",
+              lockValue.key, lockValue, waitTime);
+        }
+        if (lockValue.isSomeoneWaiting()) {
+          // noinspection SynchronizationOnLocalVariableOrMethodParameter
           synchronized (lockValue) {
-            lockValue.setRemoved();
-            if (isTraceEnabled) {
-              long waitTime = System.currentTimeMillis() - lockValue.lockedTimeStamp;
-              logger.trace("LockKeys: remove key {}, notifyAll for {}. It waited {}", key,
-                  lockValue, waitTime);
-            }
-            if (lockValue.isSomeoneWaiting()) {
-              lockValue.notifyAll();
-            }
+            lockValue.notifyAll();
           }
         }
-      } // for
+      }
     }
   }
 
@@ -473,32 +475,34 @@ public class BucketRegion extends DistributedRegion implements Bucket {
    * This method will block current thread for long time. It only exits when current thread
    * successfully save its keys into CM.
    */
-  public boolean waitUntilLocked(Object[] keys) {
+  public boolean waitUntilLocked(@NotNull Object @NotNull [] keys) {
     final boolean isDebugEnabled = logger.isDebugEnabled();
 
-    final String title = "BucketRegion.waitUntilLocked:";
     while (true) {
-      LockObject foundLock = searchAndLock(keys);
+      final LockObject foundLock = searchAndLock(keys);
 
       if (foundLock != null) {
-        synchronized (foundLock) {
-          try {
-            while (!foundLock.isRemoved()) {
-              partitionedRegion.checkReadiness();
+        try {
+          while (!foundLock.isRemoved()) {
+            partitionedRegion.checkReadiness();
+            // noinspection SynchronizationOnLocalVariableOrMethodParameter
+            synchronized (foundLock) {
               foundLock.wait(1000);
-              // primary could be changed by prRebalancing while waiting here
-              checkForPrimary();
             }
-          } catch (InterruptedException e) {
-            // TODO this isn't a localizable string and it's being logged at info level
-            if (isDebugEnabled) {
-              logger.debug("{} interrupted while waiting for {}", title, foundLock);
-            }
+            // primary could be changed by prRebalancing while waiting here
+            checkForPrimary();
           }
+        } catch (InterruptedException e) {
+          // TODO this isn't a localizable string and it's being logged at info level
           if (isDebugEnabled) {
-            long waitTime = System.currentTimeMillis() - foundLock.lockedTimeStamp;
-            logger.debug("{} waited {} ms to lock {}", title, waitTime, foundLock);
+            logger.debug("BucketRegion.waitUntilLocked: interrupted while waiting for {}",
+                foundLock);
           }
+        }
+        if (isDebugEnabled) {
+          long waitTime = System.currentTimeMillis() - foundLock.lockedTimeStamp;
+          logger.debug("BucketRegion.waitUntilLocked: waited {} ms to lock {}", waitTime,
+              foundLock);
         }
       } else {
         // now the keys have been locked by this thread
