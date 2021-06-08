@@ -430,13 +430,13 @@ public abstract class PartitionMessage extends DistributionMessage
    */
   protected Throwable processCheckForPR(PartitionedRegion pr,
       DistributionManager distributionManager) {
-    if ((pr == null || !pr.getDistributionAdvisor().isInitialized()) && failIfRegionMissing()) {
+    if ((pr == null || !pr.getDistributionAdvisor().pollIsInitialized()) && failIfRegionMissing()) {
       // if the distributed system is disconnecting, don't send a reply saying
-      // the partitioned region can't be found (bug 36585)
-      Throwable thr = new ForceReattemptException(
+      // the partitioned region can't be found
+      // reply sent in finally block below
+      return new ForceReattemptException(
           String.format("%s : could not find partitioned region with Id %s",
               distributionManager.getDistributionManagerId(), regionId));
-      return thr; // reply sent in finally block below
     }
     return null;
   }
