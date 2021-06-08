@@ -49,7 +49,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.apache.logging.log4j.Logger;
+import org.jctools.maps.NonBlockingHashMapLong;
 
 import org.apache.geode.CancelException;
 import org.apache.geode.InternalGemFireException;
@@ -494,6 +496,7 @@ public class PartitionedRegion extends LocalRegion
     return bucketSorter;
   }
 
+  @VisibleForTesting
   static PRIdMap getPrIdToPR() {
     return prIdToPR;
   }
@@ -587,9 +590,7 @@ public class PartitionedRegion extends LocalRegion
    * the cache
    */
   public static void clearPRIdMap() {
-    synchronized (prIdToPR) {
-      prIdToPR.clear();
-    }
+    prIdToPR.clear();
   }
 
   @Immutable
@@ -632,29 +633,21 @@ public class PartitionedRegion extends LocalRegion
     }
   }
 
+  @VisibleForTesting
+  static class PRIdMap {
+    @VisibleForTesting
+    static final String DESTROYED = "Partitioned Region Destroyed";
 
-  public static class PRIdMap extends HashMap {
-    private static final long serialVersionUID = 3667357372967498179L;
-    public static final String DESTROYED = "Partitioned Region Destroyed";
+    private static final String LOCALLY_DESTROYED = "Partitioned Region Is Locally Destroyed";
 
-    static final String LOCALLY_DESTROYED = "Partitioned Region Is Locally Destroyed";
+    private static final String FAILED_REGISTRATION = "Partitioned Region's Registration Failed";
 
-    static final String FAILED_REGISTRATION = "Partitioned Region's Registration Failed";
+    private static final String NO_PATH_FOUND = "NoPathFound";
 
-    public static final String NO_PATH_FOUND = "NoPathFound";
+    private final NonBlockingHashMapLong<Object> map = new NonBlockingHashMapLong<>();
 
-    private volatile boolean cleared = true;
-
-    @Override
-    public Object get(Object key) {
-      throw new UnsupportedOperationException(
-          "PRIdMap.get not supported - use getRegion instead");
-    }
-
-    public Object getRegion(Object key) throws PRLocallyDestroyedException {
-      Assert.assertTrue(key instanceof Integer);
-
-      Object o = super.get(key);
+    public PartitionedRegion getRegion(int key) throws PRLocallyDestroyedException {
+      Object o = map.get(key);
       if (o == DESTROYED) {
         throw new RegionDestroyedException(
             String.format("Region for prId= %s is destroyed",
@@ -671,55 +664,53 @@ public class PartitionedRegion extends LocalRegion
             String.format("Region with prId= %s failed initialization on this node",
                 key));
       }
-      return o;
+      return (PartitionedRegion) o;
     }
 
-    @Override
-    public Object remove(final Object key) {
+    public Object remove(final int key) {
       return put(key, DESTROYED, true);
     }
 
-    @Override
-    public Object put(final Object key, final Object value) {
+    public Object put(final int key, final Object value) {
       return put(key, value, true);
     }
 
-    public Object put(final Object key, final Object value, boolean sendIdentityRequestMessage) {
-      if (cleared) {
-        cleared = false;
-      }
-
-      if (key == null) {
-        throw new NullPointerException(
-            "null key not allowed for prIdToPR Map");
-      }
+    public Object put(final int key, final Object value, boolean sendIdentityRequestMessage) {
       if (value == null) {
         throw new NullPointerException(
             "null value not allowed for prIdToPR Map");
       }
-      Assert.assertTrue(key instanceof Integer);
-      if (sendIdentityRequestMessage)
-        IdentityRequestMessage.setLatestId((Integer) key);
-      if ((super.get(key) == DESTROYED) && (value instanceof PartitionedRegion)) {
+
+      if (sendIdentityRequestMessage) {
+        IdentityRequestMessage.setLatestId(key);
+      }
+      if ((map.get(key) == DESTROYED) && (value instanceof PartitionedRegion)) {
         throw new PartitionedRegionException(
             String.format("Can NOT reuse old Partitioned Region Id= %s",
                 key));
       }
-      return super.put(key, value);
+      return map.put(key, value);
     }
 
-    @Override
+    public Object replace(final int key, final Object value) {
+      return map.computeIfPresent((long) key, (k, v) -> {
+        if (v == DESTROYED && (value instanceof  PartitionedRegion)) {
+          throw new PartitionedRegionException(String.format("Can NOT reuse old Partitioned Region Id= %s", key));
+        }
+        return value;
+      });
+    }
+
     public void clear() {
-      this.cleared = true;
-      super.clear();
+      map.clear();
     }
 
-    public synchronized String dump() {
+    public String dump() {
       StringBuilder sb = new StringBuilder("prIdToPR Map@");
       sb.append(System.identityHashCode(prIdToPR)).append(':').append(getLineSeparator());
-      Map.Entry mapEntry;
-      for (Iterator iterator = prIdToPR.entrySet().iterator(); iterator.hasNext();) {
-        mapEntry = (Map.Entry) iterator.next();
+      Map.Entry<Long, Object> mapEntry;
+      for (Iterator<Map.Entry<Long, Object>> iterator = map.entrySet().iterator(); iterator.hasNext();) {
+        mapEntry = iterator.next();
         sb.append(mapEntry.getKey()).append("=>").append(mapEntry.getValue());
         if (iterator.hasNext()) {
           sb.append(getLineSeparator());
@@ -727,6 +718,20 @@ public class PartitionedRegion extends LocalRegion
       }
       return sb.toString();
     }
+
+    public boolean containsKey(final int key) {
+      return map.containsKey(key);
+    }
+
+    public Iterable<Object> values() {
+      return map.values();
+    }
+
+    @VisibleForTesting
+    int size() {
+      return map.size();
+    }
+
   }
 
   private int partitionedRegionId = -3;
@@ -1445,9 +1450,7 @@ public class PartitionedRegion extends LocalRegion
             new Object[] {getFullPath(), this.partitionedRegionId});
       }
 
-      synchronized (prIdToPR) {
-        prIdToPR.put(this.partitionedRegionId, this); // last
-      }
+      prIdToPR.put(this.partitionedRegionId, this);
 
       prConfig.addNode(this.node);
       if (this.getFixedPartitionAttributesImpl() != null) {
@@ -1488,12 +1491,9 @@ public class PartitionedRegion extends LocalRegion
               "An exception was caught while registering PartitionedRegion %s. dumpPRId: %s",
               getFullPath(), prIdToPR.dump());
       try {
-        synchronized (prIdToPR) {
-          if (prIdToPR.containsKey(this.partitionedRegionId)) {
-            prIdToPR.put(this.partitionedRegionId, PRIdMap.FAILED_REGISTRATION, false);
-            logger.info("FAILED_REGISTRATION prId={} named {}",
-                new Object[] {this.partitionedRegionId, this.getName()});
-          }
+        if (null != prIdToPR.replace(this.partitionedRegionId, PRIdMap.FAILED_REGISTRATION)) {
+          logger.info("FAILED_REGISTRATION prId={} named {}",
+              new Object[] {this.partitionedRegionId, this.getName()});
         }
       } catch (VirtualMachineError err) {
         SystemFailure.initiateFailure(err);
@@ -5091,11 +5091,7 @@ public class PartitionedRegion extends LocalRegion
    * @param prid Partitioned Region ID
    */
   public static PartitionedRegion getPRFromId(int prid) throws PRLocallyDestroyedException {
-    final Object o;
-    synchronized (prIdToPR) {
-      o = prIdToPR.getRegion(prid);
-    }
-    return (PartitionedRegion) o;
+    return prIdToPR.getRegion(prid);
   }
 
   /**
@@ -5107,11 +5103,7 @@ public class PartitionedRegion extends LocalRegion
    */
   public static void validatePRID(InternalDistributedMember sender, int prId, String regionId) {
     try {
-      PartitionedRegion pr = null;
-      synchronized (prIdToPR) {
-        // first do a quick probe
-        pr = (PartitionedRegion) prIdToPR.getRegion(prId);
-      }
+      final PartitionedRegion pr = getPRFromId(prId);
       if (pr != null && !pr.isLocallyDestroyed && pr.getRegionIdentifier().equals(regionId)) {
         return;
       }
@@ -5122,22 +5114,19 @@ public class PartitionedRegion extends LocalRegion
     } catch (PRLocallyDestroyedException ignore) {
       // ignore and do full check
     }
-    synchronized (prIdToPR) {
-      for (Iterator it = prIdToPR.values().iterator(); it.hasNext();) {
-        Object o = it.next();
-        if (o instanceof String) {
-          continue;
+    for (Object o : prIdToPR.values()) {
+      if (o instanceof String) {
+        continue;
+      }
+      PartitionedRegion pr = (PartitionedRegion) o;
+      if (pr.getPRId() == prId) {
+        if (!pr.getRegionIdentifier().equals(regionId)) {
+          logger.warn("{} is using PRID {} for {} but this process maps that PRID to {}",
+              sender, prId, pr.getRegionIdentifier(), pr.getPRId());
         }
-        PartitionedRegion pr = (PartitionedRegion) o;
-        if (pr.getPRId() == prId) {
-          if (!pr.getRegionIdentifier().equals(regionId)) {
-            logger.warn("{} is using PRID {} for {} but this process maps that PRID to {}",
-                new Object[] {sender.toString(), prId, pr.getRegionIdentifier()});
-          }
-        } else if (pr.getRegionIdentifier().equals(regionId)) {
-          logger.warn("{} is using PRID {} for {} but this process is using PRID {}",
-              new Object[] {sender, prId, pr.getRegionIdentifier(), pr.getPRId()});
-        }
+      } else if (pr.getRegionIdentifier().equals(regionId)) {
+        logger.warn("{} is using PRID {} for {} but this process is using PRID {}",
+            sender, prId, pr.getRegionIdentifier(), pr.getPRId());
       }
     }
   }
@@ -5581,13 +5570,10 @@ public class PartitionedRegion extends LocalRegion
 
     if (this.cleanPRRegistration) {
       try {
-        synchronized (prIdToPR) {
-          if (prIdToPR.containsKey(this.partitionedRegionId)) {
-            prIdToPR.put(this.partitionedRegionId, PRIdMap.FAILED_REGISTRATION, false);
-            if (logger.isDebugEnabled()) {
-              logger.debug("cleanupFailedInitialization: set failed for prId={} named {}",
-                  this.partitionedRegionId, this.getName());
-            }
+        if (null != prIdToPR.replace(this.partitionedRegionId, PRIdMap.FAILED_REGISTRATION)) {
+          if (logger.isDebugEnabled()) {
+            logger.debug("cleanupFailedInitialization: set failed for prId={} named {}",
+                this.partitionedRegionId, this.getName());
           }
         }
 
@@ -7095,9 +7081,7 @@ public class PartitionedRegion extends LocalRegion
 
       // Must clean up pridToPR map so that messages do not get access to buckets
       // which should be destroyed
-      synchronized (prIdToPR) {
-        prIdToPR.put(getPRId(), PRIdMap.LOCALLY_DESTROYED, false);
-      }
+      prIdToPR.put(getPRId(), PRIdMap.LOCALLY_DESTROYED, false);
 
       redundancyProvider.shutdown();
 
@@ -7107,9 +7091,7 @@ public class PartitionedRegion extends LocalRegion
     } finally {
       // Make extra sure that the static is cleared in the event
       // a new cache is created
-      synchronized (prIdToPR) {
-        prIdToPR.put(getPRId(), PRIdMap.LOCALLY_DESTROYED, false);
-      }
+      prIdToPR.put(getPRId(), PRIdMap.LOCALLY_DESTROYED, false);
 
       rl.unlock();
     }
@@ -7598,9 +7580,7 @@ public class PartitionedRegion extends LocalRegion
       logger.debug("destroyPartitionedRegionLocally: Starting destroy for PR = {}", this);
     }
     try {
-      synchronized (prIdToPR) {
-        prIdToPR.remove(getPRId());
-      }
+      prIdToPR.remove(getPRId());
       this.redundancyProvider.shutdown(); // see bug 41094
       if (this.dataStore != null) {
         this.dataStore.cleanUp(false, removeFromDisk);

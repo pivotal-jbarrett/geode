@@ -134,10 +134,6 @@ public class PartitionedRegionPRIDDUnitTest extends CacheTestCase {
     assertThat(prIdSet).hasSize(numberOfPartitionedRegions);
 
     // # of prId generated in prIdToPR should be equal to number of partition region
-    assertThat(PartitionedRegion.getPrIdToPR()).hasSize(numberOfPartitionedRegions);
-
-    // checking uniqueness of prId in prIdToPR
-    SortedSet<Integer> prIdPRSet = new TreeSet<>(PartitionedRegion.getPrIdToPR().keySet());
-    assertThat(prIdPRSet).hasSameSizeAs(PartitionedRegion.getPrIdToPR().keySet());
+    assertThat(PartitionedRegion.getPrIdToPR().size()).isEqualTo(numberOfPartitionedRegions);
   }
 }

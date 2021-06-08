@@ -851,9 +851,6 @@ public class PartitionedRegionAPIDUnitTest extends CacheTestCase {
           String name = subregion.getName();
           assertThat(name).doesNotContain(PartitionedRegionHelper.BUCKET_REGION_PREFIX);
         }
-
-        boolean containsKey = PartitionedRegion.getPrIdToPR().containsKey(regionName);
-        assertThat(containsKey).isFalse();
       });
     }
   }

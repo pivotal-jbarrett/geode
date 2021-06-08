@@ -183,7 +183,7 @@ public class PartitionedRegionDestroyDUnitTest extends CacheTestCase {
         "ThePrIdToPR Map size is:" + PartitionedRegion.getPrIdToPR().size() + " instead of 0",
         numberOfRegions, PartitionedRegion.getPrIdToPR().size());
 
-    assertThat(PartitionedRegion.getPrIdToPR()).hasSize(numberOfRegions);
+    assertThat(PartitionedRegion.getPrIdToPR().size()).isEqualTo(numberOfRegions);
 
     for (Object regionObject : rootRegion.subregions(false)) {
       Region region = (Region) regionObject;

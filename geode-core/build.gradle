@@ -253,6 +253,9 @@ dependencies {
     //FastUtil contains optimized collections that are used in multiple places in core
     implementation('it.unimi.dsi:fastutil')
 
+    // Concurrent long->object map.
+    implementation('org.jctools:jctools-core:3.3.0')
+
     //Mail API is used by the deprecated admin API
     implementation('javax.mail:javax.mail-api') {
         ext.optional = true

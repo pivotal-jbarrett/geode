@@ -37,6 +37,7 @@ import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache30.CertifiableTestCacheListener;
 import org.apache.geode.distributed.DistributedMember;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
+import org.apache.geode.internal.cache.PartitionedRegion.PRIdMap;
 import org.apache.geode.test.dunit.VM;
 import org.apache.geode.test.dunit.cache.CacheTestCase;
 
@@ -301,9 +302,9 @@ public class PartitionedRegionHAFailureAndRecoveryDUnitTest extends CacheTestCas
 
   private void validateNodeFailBucket2NodeCleanUp(final InternalDistributedMember member) {
     getCache();
-    Map prIdToPR = PartitionedRegion.getPrIdToPR();
+    PRIdMap prIdToPR = PartitionedRegion.getPrIdToPR();
     for (Object prRegionObject : prIdToPR.values()) {
-      if (prRegionObject == PartitionedRegion.PRIdMap.DESTROYED) {
+      if (prRegionObject == PRIdMap.DESTROYED) {
         continue;
       }
       PartitionedRegion prRegion = (PartitionedRegion) prRegionObject;
