@@ -75,7 +75,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
    * @param capacity to limit each member pool too.
    */
   public ConnectionPoolImpl(final int capacity) {
-    this(capacity, false);
+    this(capacity, true);
   }
 
   ConnectionPoolImpl(final int capacity, final boolean useThreadChecked) {
