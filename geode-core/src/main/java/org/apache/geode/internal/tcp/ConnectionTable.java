@@ -57,7 +57,6 @@ import org.apache.geode.internal.net.BufferPool;
 import org.apache.geode.internal.net.SocketCloser;
 import org.apache.geode.internal.tcp.pool.ConnectionPool;
 import org.apache.geode.internal.tcp.pool.ConnectionPoolImpl;
-import org.apache.geode.internal.tcp.pool.PooledConnection;
 import org.apache.geode.logging.internal.executors.LoggingExecutors;
 import org.apache.geode.logging.internal.log4j.api.LogService;
 
@@ -503,11 +502,8 @@ public class ConnectionTable {
       return pooledConnection;
     }
 
-    final PooledConnection pooledConnection = connectionPool
+    return connectionPool
         .makePooled(createSender(distributedMember, startTime, ackTimeout, ackSATimeout));
-    scheduleIdleTimeout(pooledConnection);
-
-    return pooledConnection;
   }
 
   /**

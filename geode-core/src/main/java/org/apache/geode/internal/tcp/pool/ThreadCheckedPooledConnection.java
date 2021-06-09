@@ -37,13 +37,12 @@ import org.apache.geode.internal.tcp.ConnectionException;
 
 public final class ThreadCheckedPooledConnection extends AbstractConnection
     implements PooledConnection {
-  private final PooledConnection delegate;
-  private final Thread owner;
+
+  private final @NotNull PooledConnection delegate;
+  private @Nullable Thread owner = null;
 
   public ThreadCheckedPooledConnection(final @NotNull PooledConnection delegate) {
     this.delegate = delegate;
-
-    owner = currentThread();
   }
 
   public @NotNull PooledConnection getDelegate() {
@@ -56,6 +55,14 @@ public final class ThreadCheckedPooledConnection extends AbstractConnection
           format("Attempt to invoke method from %s while owned by %s", currentThread(),
               owner));
     }
+  }
+
+  public @Nullable Thread getOwner() {
+    return owner;
+  }
+
+  public void setOwner(final @Nullable Thread owner) {
+    this.owner = owner;
   }
 
   @Override

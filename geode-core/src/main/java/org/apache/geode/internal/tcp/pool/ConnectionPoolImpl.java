@@ -115,7 +115,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
       return createPool();
     });
 
-    final PooledConnectionImpl pooledConnection = new PooledConnectionImpl(this, connection);
+    final PooledConnection pooledConnection =
+        wrapThreadChecked(new PooledConnectionImpl(this, connection));
     log.info("Pooled connection {} created.", pooledConnection);
 
     put(pooledConnection);
@@ -166,7 +167,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
   }
 
   private void put(final @NotNull PooledConnection pooledConnection) {
-    computeIfAbsent(connections, pooledConnection.getRemoteAddress(),
+    computeIfAbsent(connections, unwrapThreadChecked(pooledConnection).getRemoteAddress(),
         (k) -> ConcurrentHashMap.newKeySet()).add(pooledConnection);
   }
 
@@ -178,15 +179,19 @@ public class ConnectionPoolImpl implements ConnectionPool {
   }
 
   private @NotNull PooledConnection claim(final @NotNull PooledConnection pooledConnection) {
-    pooledConnection.setState(Claimed);
-    return wrapThreadChecked(pooledConnection);
+    unwrapThreadChecked(pooledConnection).setState(Claimed);
+    updateThreadCheckedOwner(pooledConnection);
+    return pooledConnection;
   }
 
   @Override
   public void relinquish(@NotNull final PooledConnection pooledConnection) {
-    pooledConnection.setState(Relinquished);
+    clearThreadCheckedOwner(pooledConnection);
 
-    final Deque<PooledConnection> pool = getPool(pooledConnection);
+    final PooledConnection unwrappedPooledConnection = unwrapThreadChecked(pooledConnection);
+    unwrappedPooledConnection.setState(Relinquished);
+
+    final Deque<PooledConnection> pool = getPool(unwrappedPooledConnection);
     if (null == pool) {
       log.info("Pooled connection {} relinquished but no pool for member exists.",
           pooledConnection);
@@ -194,8 +199,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
       return;
     }
 
-    if (!pool
-        .offerFirst(unwrapThreadChecked(pooledConnection))) {
+    if (!pool.offerFirst(pooledConnection)) {
       log.info("Pooled connection {} relinquished but pool for member rejected it.",
           pooledConnection);
       try {
@@ -254,6 +258,18 @@ public class ConnectionPoolImpl implements ConnectionPool {
   PooledConnection wrapThreadChecked(final @NotNull PooledConnection pooledConnection) {
     return useThreadChecked ? new ThreadCheckedPooledConnection(pooledConnection)
         : pooledConnection;
+  }
+
+  private void updateThreadCheckedOwner(final @NotNull PooledConnection pooledConnection) {
+    if (useThreadChecked && pooledConnection instanceof ThreadCheckedPooledConnection) {
+      ((ThreadCheckedPooledConnection) pooledConnection).setOwner(Thread.currentThread());
+    }
+  }
+
+  private void clearThreadCheckedOwner(final @NotNull PooledConnection pooledConnection) {
+    if (useThreadChecked && pooledConnection instanceof ThreadCheckedPooledConnection) {
+      ((ThreadCheckedPooledConnection) pooledConnection).setOwner(null);
+    }
   }
 
   @NotNull

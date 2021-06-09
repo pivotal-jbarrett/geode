@@ -62,6 +62,7 @@ public class ThreadCheckedPooledConnectionTest {
     when(pooledConnection.getMessagesSent()).thenReturn(42L);
     final ThreadCheckedPooledConnection threadChecked =
         new ThreadCheckedPooledConnection(pooledConnection);
+    threadChecked.setOwner(Thread.currentThread());
     final DirectReplyProcessor directReplyProcessor = mock(DirectReplyProcessor.class);
     final SystemTimer.SystemTimerTask idleTimeoutTask = mock(SystemTimer.SystemTimerTask.class);
     final ByteBuffer preserialized =

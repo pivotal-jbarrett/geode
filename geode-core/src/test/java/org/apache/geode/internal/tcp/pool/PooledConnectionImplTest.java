@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -143,8 +144,6 @@ public class PooledConnectionImplTest {
 
     verify(connection).setInUse(eq(false), eq(0L), eq(0L), eq(0L), isNull());
     verify(connectionPool).relinquish(eq(pooledConnection));
-
-    verifyNoMoreInteractions(connection, connectionPool);
   }
 
   @Test
@@ -159,8 +158,7 @@ public class PooledConnectionImplTest {
     assertThat(pooledConnection.getState()).isEqualTo(InUse);
 
     verify(connection).setInUse(eq(true), eq(0L), eq(0L), eq(0L), isNull());
-
-    verifyNoMoreInteractions(connection, connectionPool);
+    verify(connectionPool, times(0)).relinquish(eq(pooledConnection));
   }
 
   @Test

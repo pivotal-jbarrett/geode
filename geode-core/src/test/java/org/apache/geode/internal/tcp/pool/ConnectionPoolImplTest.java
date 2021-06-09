@@ -17,12 +17,15 @@ package org.apache.geode.internal.tcp.pool;
 
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Relinquished;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -117,6 +120,23 @@ public class ConnectionPoolImplTest {
   }
 
   @Test
+  public void pooledConnectionThrowsAfterSetInUseFalseWhenThreadChecked() {
+    final ConnectionPoolImpl connectionPool = new ConnectionPoolImpl(0, true);
+    final InternalDistributedMember member = mock(InternalDistributedMember.class);
+    final InternalConnection connection = mock(InternalConnection.class);
+    when(connection.getRemoteAddress()).thenReturn(member);
+    final PooledConnection pooledConnection = connectionPool.makePooled(connection);
+    pooledConnection.setInUse(true, 0, 0, 0, null);
+    pooledConnection.setInUse(false, 0, 0, 0, null);
+    clearInvocations(connection);
+
+    assertThatThrownBy(() -> pooledConnection.setInUse(true, 0, 0, 0, null))
+        .isInstanceOf(IllegalStateException.class);
+
+    verifyNoInteractions(connection);
+  }
+
+  @Test
   public void claimWrapsWithThreadChecked() {
     final InternalDistributedMember member = mock(InternalDistributedMember.class);
     final InternalConnection connection = mock(InternalConnection.class);
@@ -160,11 +180,8 @@ public class ConnectionPoolImplTest {
     connectionPool.relinquish(pooledConnection1);
     connectionPool.relinquish(pooledConnection2);
 
-    verify(connection1).getRemoteAddress();
-    verifyNoMoreInteractions(connection1);
-    verify(connection2).getRemoteAddress();
+    verify(connection1, times(0)).closeOldConnection(any());
     verify(connection2).closeOldConnection(any());
-    verifyNoMoreInteractions(connection2);
   }
 
   @Test
