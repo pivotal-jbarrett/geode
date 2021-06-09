@@ -81,7 +81,7 @@ public final class ThreadCheckedPooledConnection extends AbstractConnection
 
   @Override
   public @Nullable InternalDistributedMember getRemoteAddress() {
-    checkThread();
+    // Allows calls from other threads
     return delegate.getRemoteAddress();
   }
 
@@ -150,7 +150,7 @@ public final class ThreadCheckedPooledConnection extends AbstractConnection
 
   @Override
   public void closePartialConnect(@NotNull final String reason, final boolean beingSick) {
-    checkThread();
+    // Allows calls from other threads
     delegate.closePartialConnect(reason, beingSick);
   }
 

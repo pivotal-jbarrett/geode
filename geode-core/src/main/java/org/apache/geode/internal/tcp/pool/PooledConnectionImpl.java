@@ -18,6 +18,7 @@ package org.apache.geode.internal.tcp.pool;
 import static java.lang.String.format;
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Claimed;
 import static org.apache.geode.internal.tcp.pool.PooledConnection.State.InUse;
+import static org.apache.geode.internal.tcp.pool.PooledConnection.State.Removed;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -60,15 +61,15 @@ public class PooledConnectionImpl extends AbstractConnection implements PooledCo
   }
 
   @Override
-  public void setState(final State state) {
+  synchronized public void setState(final State state) {
     this.state = state;
   }
 
-  State getState() {
+  synchronized State getState() {
     return state;
   }
 
-  void transitionState(final State toState, final @NotNull State @NotNull... fromStates) {
+  synchronized void transitionState(final State toState, final @NotNull State @NotNull... fromStates) {
     if (!containsState(state, fromStates)) {
       throw new IllegalStateException(
           format("Can't transition from state %s to state %s, expected state(s) %s.", state,
@@ -114,7 +115,12 @@ public class PooledConnectionImpl extends AbstractConnection implements PooledCo
     if (inUse) {
       transitionState(InUse, InUse, Claimed);
     } else {
-      transitionState(Claimed, InUse);
+      synchronized (this) {
+        // A connection can get closed by another thread whilst still 'InUse', placing it in 'Removed'.
+        if (state != Removed) {
+          transitionState(Claimed, InUse);
+        }
+      }
     }
 
     connection.setInUse(inUse, startTime, ackWaitThreshold, ackSAThreshold, connectionGroup);
