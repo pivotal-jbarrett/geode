@@ -23,6 +23,8 @@ dependencies {
 
 jmh {
   duplicateClassesStrategy = 'exclude'
+  zip64 = true;
+
   include = project.hasProperty('jmh.include') ? project.property('jmh.include').tokenize() : ['.*']
   profilers = project.hasProperty('jmh.profilers') ? project.property('jmh.profilers').tokenize() : []
   threads = project.hasProperty('jmh.threads') ? project.property('jmh.threads') as Integer : null
