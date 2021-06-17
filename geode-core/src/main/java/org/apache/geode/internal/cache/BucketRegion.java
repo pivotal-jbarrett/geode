@@ -1061,6 +1061,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
   @Override
   void performExpiryTimeout(ExpiryTask expiryTask) throws CacheException {
     boolean isEvictDestroy = isEntryEvictDestroyEnabled();
+    logger.warn("XXX: BucketRegion.performExpiryTimeout: expiryTask={}, isEvictDestroy={}", expiryTask, isEvictDestroy);
     // Fix for bug 43805 - get the primary lock before
     // synchronizing on pendingSecondaryExpires, to match the lock
     // ordering in other place (like acquiredPrimaryLock)
@@ -1073,6 +1074,7 @@ public class BucketRegion extends DistributedRegion implements Bucket {
           if (expiryTask.isPending()) {
             Object key = expiryTask.getKey();
             if (key != null) {
+              logger.warn("XXX: BucketRegion.performExpiryTimeout: pendingSecondaryExpires: expiryTask={}", expiryTask);
               pendingSecondaryExpires.put(key, expiryTask);
             }
           }
