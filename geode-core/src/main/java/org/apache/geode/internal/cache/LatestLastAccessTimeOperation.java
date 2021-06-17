@@ -16,11 +16,14 @@ package org.apache.geode.internal.cache;
 
 import java.util.Set;
 
+import org.apache.logging.log4j.Logger;
+
 import org.apache.geode.CancelException;
 import org.apache.geode.distributed.internal.DistributionManager;
 import org.apache.geode.distributed.internal.ReplyException;
 import org.apache.geode.distributed.internal.membership.InternalDistributedMember;
 import org.apache.geode.internal.serialization.Version;
+import org.apache.geode.logging.internal.log4j.api.LogService;
 
 /**
  * Operation that determines the latest last access time for a given region and key
@@ -28,6 +31,8 @@ import org.apache.geode.internal.serialization.Version;
  * @since Geode 1.4
  */
 public class LatestLastAccessTimeOperation<K> {
+  private static final Logger log = LogService.getLogger();
+
   private final InternalDistributedRegion region;
   private final K key;
 
@@ -37,6 +42,8 @@ public class LatestLastAccessTimeOperation<K> {
   }
 
   public long getLatestLastAccessTime() {
+    log.info("XXX: LatestLastAccessTimeOperation.getLatestLastAccessTime: key={}", key);
+
     final Set<InternalDistributedMember> recipients =
         this.region.getCacheDistributionAdvisor().adviseNetSearch();
     final DistributionManager dm = this.region.getDistributionManager();
